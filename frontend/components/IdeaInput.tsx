@@ -30,11 +30,11 @@ export default function IdeaInput() {
     return (
         <form onSubmit={handleSubmit} className="w-full">
             <div className="flex gap-2">
-                <textarea
+                                <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="记录你的灵感..."
-                    className="flex-1 min-h-[100px] p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 min-h-[100px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     disabled={loading}
                 />
             </div>

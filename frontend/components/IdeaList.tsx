@@ -35,8 +35,8 @@ export default function IdeaList() {
     };
 
     if (ideas.length === 0) {
-        return (
-            <div className="text-center py-12 text-gray-500">
+                return (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 还没有灵感记录，快来添加第一条吧！
             </div>
         );
@@ -45,16 +45,16 @@ export default function IdeaList() {
     return (
         <div className="space-y-4">
             {ideas.map((idea) => (
-                <div
+                                <div
                     key={idea.id}
-                    className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                    className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md dark:hover:shadow-gray-700/50 transition-shadow"
                 >
                     <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1">
-                            <p className="text-gray-800 whitespace-pre-wrap">{idea.content}</p>
+                                                <div className="flex-1">
+                            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{idea.content}</p>
 
                             {idea.summary && (
-                                <p className="mt-2 text-sm text-gray-600 italic">
+                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
                                     摘要：{idea.summary}
                                 </p>
                             )}
@@ -77,7 +77,7 @@ export default function IdeaList() {
                                 </div>
                             )}
 
-                            <p className="mt-2 text-xs text-gray-400">
+                            <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                                 {new Date(idea.createdAt).toLocaleString('zh-CN')}
                             </p>
                         </div>

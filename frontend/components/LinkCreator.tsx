@@ -29,20 +29,43 @@ export default function LinkCreator() {
         }
     };
 
-    return (
-        <form onSubmit={createLink} className="p-4 border rounded-lg space-y-2">
+        return (
+        <form onSubmit={createLink} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-2 bg-white dark:bg-gray-800">
             <div className="flex gap-2">
-                <input className="border p-2 flex-1" placeholder="From Idea ID" value={fromId} onChange={(e) => setFromId(e.target.value)} />
-                <input className="border p-2 flex-1" placeholder="To Idea ID" value={toId} onChange={(e) => setToId(e.target.value)} />
+                <input 
+                    className="border border-gray-300 dark:border-gray-600 p-2 flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                    placeholder="From Idea ID" 
+                    value={fromId} 
+                    onChange={(e) => setFromId(e.target.value)} 
+                />
+                <input 
+                    className="border border-gray-300 dark:border-gray-600 p-2 flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                    placeholder="To Idea ID" 
+                    value={toId} 
+                    onChange={(e) => setToId(e.target.value)} 
+                />
             </div>
-            <input className="border p-2 w-full" placeholder="关联理由（可选）" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <input 
+                className="border border-gray-300 dark:border-gray-600 p-2 w-full rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                placeholder="关联理由（可选）" 
+                value={reason} 
+                onChange={(e) => setReason(e.target.value)} 
+            />
             <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-600">强度</label>
-                <input type="range" min={0.1} max={1} step={0.05} value={strength} onChange={(e) => setStrength(parseFloat(e.target.value))} />
-                <span className="text-sm">{strength.toFixed(2)}</span>
+                <label className="text-sm text-gray-600 dark:text-gray-400">强度</label>
+                <input 
+                    type="range" 
+                    min={0.1} 
+                    max={1} 
+                    step={0.05} 
+                    value={strength} 
+                    onChange={(e) => setStrength(parseFloat(e.target.value))} 
+                    className="bg-gray-200 dark:bg-gray-600"
+                />
+                <span className="text-sm text-gray-600 dark:text-gray-400">{strength.toFixed(2)}</span>
             </div>
-            <button className="px-4 py-2 bg-emerald-600 text-white rounded">创建链路</button>
-            {msg && <p className="text-sm text-gray-600">{msg}</p>}
+            <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors">创建链路</button>
+            {msg && <p className="text-sm text-gray-600 dark:text-gray-400">{msg}</p>}
         </form>
     );
 }
