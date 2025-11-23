@@ -29,7 +29,6 @@ temp/
 dist/
 build/
 out/
-lib/
 www/
 
 # Coverage
