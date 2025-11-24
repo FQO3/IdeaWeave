@@ -3,6 +3,7 @@ import cors from 'cors';
 import "dotenv/config";
 import authRoutes from './routes/auth';
 import ideasRoutes from './routes/ideas';
+import tagsRoutes from './routes/tags';
 import { aiAnalysisWorker } from './services/aiAnalysisWorker';
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/ideas', ideasRoutes);
+app.use('/api/tags', tagsRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -12,7 +12,7 @@ export default function UserProfileMenu({ onLogout }: UserProfileMenuProps) {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout>();
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 点击外部关闭菜单
   useEffect(() => {

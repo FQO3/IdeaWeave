@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Trash2, Tag } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Trash2, Tag, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useIdeasStore } from '@/lib/store';
 
 export default function IdeaList() {
     const { ideas, setIdeas, removeIdea } = useIdeasStore();
+    const [pollingIds, setPollingIds] = useState<Set<string>>(new Set());
 
     const loadIdeas = async () => {
         try {
@@ -17,9 +18,54 @@ export default function IdeaList() {
         }
     };
 
+    // 检查AI分析状态
+    const checkAIStatus = async (ideaId: string) => {
+        try {
+            const { data } = await api.get(`/ideas/${ideaId}/ai-status`);
+            
+            if (data.status === 'completed' || data.status === 'failed') {
+                // 分析完成，停止轮询并重新加载数据
+                setPollingIds(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(ideaId);
+                    return newSet;
+                });
+                loadIdeas(); // 重新加载数据以获取标签
+            }
+        } catch (error) {
+            console.error('Failed to check AI status:', error);
+        }
+    };
+
     useEffect(() => {
         loadIdeas();
     }, []);
+
+    // 设置轮询
+    useEffect(() => {
+        // 找出需要轮询的笔记
+        const pendingIdeas = ideas.filter(idea => 
+            idea.aiAnalysisStatus === 'pending' || 
+            idea.aiAnalysisStatus === 'processing'
+        );
+        
+        if (pendingIdeas.length > 0) {
+            setPollingIds(new Set(pendingIdeas.map(idea => idea.id)));
+        }
+    }, [ideas]);
+
+    // 轮询逻辑
+    useEffect(() => {
+        if (pollingIds.size === 0) return;
+
+        const interval = setInterval(() => {
+            pollingIds.forEach(ideaId => {
+                checkAIStatus(ideaId);
+            });
+        }, 5000); // 每5秒检查一次
+
+        return () => clearInterval(interval);
+    }, [pollingIds]);
 
 
     const handleDelete = async (id: string) => {
@@ -51,42 +97,24 @@ export default function IdeaList() {
                 >
                     <div className="flex justify-between items-start gap-3 sm:gap-4">
                         <div className="flex-1">
-                            {/* AI分析结果 */}
-                            {idea.aiAnalysis && (
-                                <div className="mb-3 space-y-2">
+                                                        {/* AI分析结果 - 只在分析完成时显示 */}
+                            {idea.aiAnalysisStatus === 'completed' && idea.summary && idea.title && (
+                                <div className="mb-3 space-y-2 animate-in fade-in-50 slide-in-from-top-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                                            {idea.aiAnalysis.title}
+                                            {idea.title}
                                         </span>
                                         <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                            idea.aiAnalysis.category === 'todo' 
+                                            idea.category === 'TODO' 
                                                 ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                                                : idea.aiAnalysis.category === 'plan'
+                                                : idea.category === 'PLAN'
                                                 ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
                                                 : 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
                                         }`}>
-                                            {idea.aiAnalysis.category === 'todo' ? '待办' : 
-                                             idea.aiAnalysis.category === 'plan' ? '规划' : '灵感'}
+                                            {idea.category === 'TODO' ? '待办' : 
+                                             idea.category === 'PLAN' ? '规划' : '灵感'}
                                         </span>
                                     </div>
-                                    
-                                    {/* 相关笔记 */}
-                                    {idea.aiAnalysis.relatedIdeas && idea.aiAnalysis.relatedIdeas.length > 0 && (
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                                            <span className="font-medium">相关笔记：</span>
-                                            {idea.aiAnalysis.relatedIdeas.map((related, index) => (
-                                                <div key={index} className="ml-2 mt-1">
-                                                    <span className="text-blue-600 dark:text-blue-400">
-                                                        {related.ideaId.slice(0, 8)}...
-                                                    </span>
-                                                    <span className="ml-1">({related.reason})</span>
-                                                    <span className="ml-1 text-gray-500">
-                                                        强度: {(related.strength * 100).toFixed(0)}%
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -98,23 +126,34 @@ export default function IdeaList() {
                                 </p>
                             )}
 
-                            {idea.tags.length > 0 && (
-                                <div className="mt-2 sm:mt-3 flex flex-wrap gap-1 sm:gap-2">
-                                    {idea.tags.map((tag) => (
-                                        <span
-                                            key={tag.id}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full"
-                                            style={{
-                                                backgroundColor: tag.color + '20',
-                                                color: tag.color
-                                            }}
-                                        >
-                                            <Tag className="w-3 h-3" />
-                                            {tag.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
+                                                        {/* 标签区域 */}
+                            <div className="mt-2 sm:mt-3">
+                                {idea.tags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1 sm:gap-2">
+                                        {idea.tags.map((tag) => (
+                                            <span
+                                                key={tag.id}
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-2"
+                                                style={{
+                                                    backgroundColor: tag.color + '20',
+                                                    color: tag.color
+                                                }}
+                                            >
+                                                <Tag className="w-3 h-3" />
+                                                {tag.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    // AI分析中动画
+                                    (idea.aiAnalysisStatus === 'pending' || idea.aiAnalysisStatus === 'processing') && (
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            <span>AI正在分析中，即将生成标签...</span>
+                                        </div>
+                                    )
+                                )}
+                            </div>
 
                             <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                                 {new Date(idea.createdAt).toLocaleString('zh-CN')}

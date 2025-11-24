@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { ideas, links } from '../db/schema';
+import { ideas, links, tags, ideasTags } from '../db/schema';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { deepSeekService } from './deepseek';
@@ -152,6 +152,46 @@ export class AIAnalysisWorker {
           updatedAt: new Date()
         })
         .where(eq(ideas.id, task.ideaId));
+
+      // 处理AI生成的标签
+      if (analysis.tags && analysis.tags.length > 0) {
+        const tagPromises = analysis.tags.map(async (tagData) => {
+          try {
+            // 检查标签是否已存在
+            const [existingTag] = await db.select()
+              .from(tags)
+              .where(eq(tags.name, tagData.name))
+              .limit(1);
+
+            let tagId;
+            if (existingTag) {
+              tagId = existingTag.id;
+            } else {
+              // 创建新标签
+              const newTagId = uuidv4();
+              const [newTag] = await db.insert(tags).values({
+                id: newTagId,
+                name: tagData.name,
+                color: tagData.color
+              }).returning();
+              tagId = newTag.id;
+            }
+
+            // 关联标签到笔记
+            await db.insert(ideasTags).values({
+              ideaId: task.ideaId,
+              tagId: tagId
+            });
+          } catch (err: any) {
+            // 忽略重复标签关联错误
+            if (err?.code !== '23505') {
+              console.error('Failed to create AI-generated tag:', err);
+            }
+          }
+        });
+
+        await Promise.allSettled(tagPromises);
+      }
 
       // 如果是非todo类别且有相关笔记，自动创建关联
       if (analysis.relatedIdeas && analysis.relatedIdeas.length > 0) {

@@ -3,6 +3,10 @@ import axios from 'axios';
 interface DeepSeekAnalysis {
   title: string;
   category: 'todo' | 'plan' | 'inspiration';
+  tags?: Array<{
+    name: string;
+    color: string;
+  }>;
   relatedIdeas?: Array<{
     ideaId: string;
     reason: string;
@@ -109,7 +113,10 @@ ${existingIdeasText}
    - todo: 具体的待办事项、任务
    - plan: 新的规划、项目想法
    - inspiration: 规划下的灵感、想法
-3. 关联分析（仅当分类不是todo时需要）：
+3. 标签生成（生成2-4个相关标签）：
+   - 每个标签应该是简短的关键词
+   - 为每个标签推荐一个合适的颜色（十六进制颜色码）
+4. 关联分析（仅当分类不是todo时需要）：
    - 找出与新笔记最相关的现有笔记（最多3个）
    - 说明关联原因
    - 给出关联强度（0.1-1.0）
@@ -120,6 +127,12 @@ ${existingIdeasText}
 {
   "title": "标题",
   "category": "todo|plan|inspiration",
+  "tags": [
+    {
+      "name": "标签名",
+      "color": "#颜色码"
+    }
+  ],
   "relatedIdeas": [
     {
       "ideaId": "笔记ID",
@@ -175,9 +188,16 @@ ${existingIdeasText}
     // 生成简单标题
     const title = content.slice(0, 10).trim() || '新笔记';
 
+    // 生成简单标签
+    const defaultTags = [
+      { name: '笔记', color: '#3b82f6' },
+      { name: '灵感', color: '#8b5cf6' }
+    ];
+
     return {
       title,
       category,
+      tags: defaultTags,
       relatedIdeas: category === 'todo' ? [] : undefined
     };
   }

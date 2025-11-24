@@ -52,6 +52,7 @@ interface Idea {
     title?: string;
     createdAt: string;
     tags: Array<{ id: string; name: string; color: string }>;
+    aiAnalysisStatus?: string;
     aiAnalysis?: {
         title: string;
         category: string;
