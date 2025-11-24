@@ -48,8 +48,19 @@ interface Idea {
     content: string;
     summary?: string;
     type: string;
+    category?: string;
+    title?: string;
     createdAt: string;
     tags: Array<{ id: string; name: string; color: string }>;
+    aiAnalysis?: {
+        title: string;
+        category: string;
+        relatedIdeas?: Array<{
+            ideaId: string;
+            reason: string;
+            strength: number;
+        }>;
+    };
 }
 
 interface IdeasState {

@@ -1,7 +1,10 @@
-import { pgTable, text, varchar, timestamp, real, integer, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, timestamp, real, pgEnum, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
+// 添加新的枚举类型
+// 原有的枚举类型保持不变
 export const ideaType = pgEnum('idea_type', ['TEXT', 'VOICE', 'IMAGE', 'VIDEO']);
 export const attachmentType = pgEnum('attachment_type', ['AUDIO', 'IMAGE', 'VIDEO']);
+
 // 添加新的分类枚举
 export const ideaCategory = pgEnum('idea_category', ['TODO', 'PLAN', 'INSPIRATION']);
 
@@ -16,6 +19,7 @@ export const users = pgTable('users', {
     emailIdx: uniqueIndex('users_email_uk').on(t.email),
 }));
 
+// 更新ideas表，添加AI分析字段
 export const ideas = pgTable('ideas', {
     id: text('id').primaryKey(),
     content: text('content').notNull(),
@@ -26,16 +30,12 @@ export const ideas = pgTable('ideas', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     attachmentUrl: text('attachment_url'),
     attachmentType: attachmentType('attachment_type'),
-    aiAnalysisStatus: varchar('ai_analysis_status', { length: 32 }).default('pending').notNull(), // 新增：AI分析状态
-    aiAnalysisAttempts: integer('ai_analysis_attempts').default(0).notNull(), // 新增：分析尝试次数
-    lastAnalysisAttempt: timestamp('last_analysis_attempt'), // 新增：最后分析尝试时间
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (t) => ({
     userIdx: index('ideas_user_idx').on(t.userId),
     createdIdx: index('ideas_created_idx').on(t.createdAt),
     categoryIdx: index('ideas_category_idx').on(t.category), // 新增：分类索引
-    aiStatusIdx: index('ideas_ai_status_idx').on(t.aiAnalysisStatus), // 新增：AI状态索引
 }));
 
 export const tags = pgTable('tags', {

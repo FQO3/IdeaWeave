@@ -4,6 +4,7 @@ import { db } from '../db';
 import { ideas, tags, ideasTags, links } from '../db/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
+import { aiAnalysisWorker } from '../services/aiAnalysisWorker';
 
 const router = Router();
 router.use(authMiddleware);
@@ -16,15 +17,44 @@ router.post('/', async (req, res) => {
         if (!content) return res.status(400).json({ error: 'Content is required' });
 
         const id = uuidv4();
+        
+        // 立即创建笔记，不等待AI分析
         const [created] = await db.insert(ideas).values({
-            id, content, type, userId, attachmentUrl: attachmentUrl || null, attachmentType: attachmentType || null
+            id,
+            content,
+            type,
+            userId,
+            summary: null, // AI分析完成后再设置
+            category: 'INSPIRATION', // 默认分类
+            title: null, // AI分析完成后再设置
+            attachmentUrl: attachmentUrl || null,
+            attachmentType: attachmentType || null,
+            aiAnalysisStatus: 'pending', // 标记为待分析
+            aiAnalysisAttempts: 0
         }).returning();
 
-        // 初期不做 AI，先返回创建结果
-        res.json({ ...created, tags: [], linksTo: [], linksFrom: [] });
-    } catch (e) {
+        // 将AI分析任务加入后台队列
+        aiAnalysisWorker.addToQueue({
+            ideaId: id,
+            content,
+            userId
+        });
+
+        // 立即返回创建结果，不等待AI分析
+        res.json({ 
+            ...created, 
+            tags: [], 
+            linksTo: [], 
+            linksFrom: [],
+            aiAnalysis: {
+                status: 'pending',
+                message: 'AI分析正在后台进行，稍后刷新查看结果'
+            }
+        });
+        } catch (e) {
         console.error('Create idea error:', e);
-        res.status(500).json({ error: 'Failed to create idea' });
+        console.error('Error details:', JSON.stringify(e , null, 2));
+        res.status(500).json({ error: 'Failed to create idea', details: e instanceof Error ? e.message : 'Unknown error' });
     }
 });
 
@@ -195,6 +225,87 @@ router.get('/graph/data', async (req, res) => {
     } catch (e) {
         console.error('Get graph error:', e);
         res.status(500).json({ error: 'Failed to get graph data' });
+    }
+});
+
+// 获取AI分析状态
+router.get('/:id/ai-status', async (req, res) => {
+    try {
+        const userId = (req as any).user.userId;
+        const { id } = req.params;
+
+        const [idea] = await db.select({
+            id: ideas.id,
+            aiAnalysisStatus: ideas.aiAnalysisStatus,
+            aiAnalysisAttempts: ideas.aiAnalysisAttempts,
+            lastAnalysisAttempt: ideas.lastAnalysisAttempt,
+            summary: ideas.summary,
+            title: ideas.title,
+            category: ideas.category
+        })
+        .from(ideas)
+        .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
+        .limit(1);
+
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        res.json({
+            status: idea.aiAnalysisStatus,
+            attempts: idea.aiAnalysisAttempts,
+            lastAttempt: idea.lastAnalysisAttempt,
+            hasAnalysis: !!idea.summary && !!idea.title,
+            analysis: idea.summary ? {
+                title: idea.title,
+                category: idea.category
+            } : null
+        });
+    } catch (e) {
+        console.error('Get AI status error:', e);
+        res.status(500).json({ error: 'Failed to get AI status' });
+    }
+});
+
+// 手动触发AI分析
+router.post('/:id/analyze', async (req, res) => {
+    try {
+        const userId = (req as any).user.userId;
+        const { id } = req.params;
+
+        const [idea] = await db.select({
+            id: ideas.id,
+            content: ideas.content,
+            aiAnalysisStatus: ideas.aiAnalysisStatus
+        })
+        .from(ideas)
+        .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
+        .limit(1);
+
+        if (!idea) return res.status(404).json({ error: 'Idea not found' });
+
+        // 重置状态为pending，重新加入队列
+        await db.update(ideas)
+            .set({
+                aiAnalysisStatus: 'pending',
+                aiAnalysisAttempts: 0,
+                lastAnalysisAttempt: null,
+                updatedAt: new Date()
+            })
+            .where(eq(ideas.id, id));
+
+        // 加入分析队列
+        aiAnalysisWorker.addToQueue({
+            ideaId: id,
+            content: idea.content,
+            userId
+        });
+
+        res.json({ 
+            success: true, 
+            message: 'AI分析已重新加入队列' 
+        });
+    } catch (e) {
+        console.error('Manual analyze error:', e);
+        res.status(500).json({ error: 'Failed to trigger analysis' });
     }
 });
 

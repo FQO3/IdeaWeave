@@ -30,21 +30,21 @@ export default function IdeaInput() {
     return (
         <form onSubmit={handleSubmit} className="w-full">
             <div className="flex gap-2">
-                                <textarea
+                                                <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="记录你的灵感..."
-                    className="flex-1 min-h-[100px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    className="flex-1 min-h-[100px] p-3 sm:p-4 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     disabled={loading}
                 />
             </div>
 
             <div className="mt-3 flex justify-end gap-2">
-                <button
-                    type="submit"
-                    disabled={!content.trim() || loading}
-                    className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                                    <button
+                        type="submit"
+                        disabled={!content.trim() || loading}
+                        className="flex items-center gap-2 px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                     {loading ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />

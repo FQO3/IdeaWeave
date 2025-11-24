@@ -1,10 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import "dotenv/config";
 import authRoutes from './routes/auth';
 import ideasRoutes from './routes/ideas';
-
-dotenv.config();
+import { aiAnalysisWorker } from './services/aiAnalysisWorker';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,4 +16,14 @@ app.use('/api/ideas', ideasRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+app.listen(PORT, async () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+
+    // 启动AI分析工作器
+    try {
+        await aiAnalysisWorker.start();
+        console.log('✅ AI Analysis Worker started successfully');
+    } catch (error) {
+        console.error('❌ Failed to start AI Analysis Worker:', error);
+    }
+});

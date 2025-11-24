@@ -45,22 +45,61 @@ export default function IdeaList() {
     return (
         <div className="space-y-4">
             {ideas.map((idea) => (
-                                <div
+                                                                <div
                     key={idea.id}
                     className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md dark:hover:shadow-gray-700/50 transition-shadow"
                 >
-                    <div className="flex justify-between items-start gap-4">
-                                                <div className="flex-1">
-                            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{idea.content}</p>
+                    <div className="flex justify-between items-start gap-3 sm:gap-4">
+                        <div className="flex-1">
+                            {/* AI分析结果 */}
+                            {idea.aiAnalysis && (
+                                <div className="mb-3 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                            {idea.aiAnalysis.title}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                            idea.aiAnalysis.category === 'todo' 
+                                                ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                                : idea.aiAnalysis.category === 'plan'
+                                                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                                                : 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                                        }`}>
+                                            {idea.aiAnalysis.category === 'todo' ? '待办' : 
+                                             idea.aiAnalysis.category === 'plan' ? '规划' : '灵感'}
+                                        </span>
+                                    </div>
+                                    
+                                    {/* 相关笔记 */}
+                                    {idea.aiAnalysis.relatedIdeas && idea.aiAnalysis.relatedIdeas.length > 0 && (
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            <span className="font-medium">相关笔记：</span>
+                                            {idea.aiAnalysis.relatedIdeas.map((related, index) => (
+                                                <div key={index} className="ml-2 mt-1">
+                                                    <span className="text-blue-600 dark:text-blue-400">
+                                                        {related.ideaId.slice(0, 8)}...
+                                                    </span>
+                                                    <span className="ml-1">({related.reason})</span>
+                                                    <span className="ml-1 text-gray-500">
+                                                        强度: {(related.strength * 100).toFixed(0)}%
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <p className="text-sm sm:text-base text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{idea.content}</p>
 
                             {idea.summary && (
-                                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                                <p className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 italic">
                                     摘要：{idea.summary}
                                 </p>
                             )}
 
                             {idea.tags.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="mt-2 sm:mt-3 flex flex-wrap gap-1 sm:gap-2">
                                     {idea.tags.map((tag) => (
                                         <span
                                             key={tag.id}
@@ -84,9 +123,9 @@ export default function IdeaList() {
 
                         <button
                             onClick={() => handleDelete(idea.id)}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-red-500 hover:text-red-700 flex-shrink-0"
                         >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
                 </div>

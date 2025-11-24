@@ -31,27 +31,27 @@ export default function LinkCreator() {
 
         return (
         <form onSubmit={createLink} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg space-y-2 bg-white dark:bg-gray-800 mt-3">
-            <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                 <input 
-                    className="border border-gray-300 dark:border-gray-600 p-2 flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                    className="border border-gray-300 dark:border-gray-600 p-2 text-sm sm:text-base flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
                     placeholder="From Idea ID" 
                     value={fromId} 
                     onChange={(e) => setFromId(e.target.value)} 
                 />
                 <input 
-                    className="border border-gray-300 dark:border-gray-600 p-2 flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                    className="border border-gray-300 dark:border-gray-600 p-2 text-sm sm:text-base flex-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
                     placeholder="To Idea ID" 
                     value={toId} 
                     onChange={(e) => setToId(e.target.value)} 
                 />
             </div>
             <input 
-                className="border border-gray-300 dark:border-gray-600 p-2 w-full rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                className="border border-gray-300 dark:border-gray-600 p-2 text-sm sm:text-base w-full rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
                 placeholder="关联理由（可选）" 
                 value={reason} 
                 onChange={(e) => setReason(e.target.value)} 
             />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
                 <label className="text-sm text-gray-600 dark:text-gray-400">强度</label>
                 <input 
                     type="range" 
@@ -60,11 +60,11 @@ export default function LinkCreator() {
                     step={0.05} 
                     value={strength} 
                     onChange={(e) => setStrength(parseFloat(e.target.value))} 
-                    className="bg-gray-200 dark:bg-gray-600"
+                    className="bg-gray-200 dark:bg-gray-600 flex-1"
                 />
                 <span className="text-sm text-gray-600 dark:text-gray-400">{strength.toFixed(2)}</span>
             </div>
-            <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors">创建链路</button>
+            <button className="px-4 py-2 text-sm sm:text-base bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors">创建链路</button>
             {msg && <p className="text-sm text-gray-600 dark:text-gray-400">{msg}</p>}
         </form>
     );
