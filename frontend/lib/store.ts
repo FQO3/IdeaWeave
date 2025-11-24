@@ -73,6 +73,7 @@ interface GraphNode {
     tags: string[];
     type: string;
     createdAt: string;
+    category?: string;
 }
 
 interface GraphLink {

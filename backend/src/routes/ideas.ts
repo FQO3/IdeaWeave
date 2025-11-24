@@ -215,22 +215,34 @@ router.post('/:id/links', async (req, res) => {
 router.get('/graph/data', async (req, res) => {
     try {
         const userId = (req as any).user.userId;
+        
+        // ✅ 在 select 中添加 category 字段
         const nodes = await db.select({
-            id: ideas.id, label: ideas.summary, content: ideas.content, type: ideas.type, createdAt: ideas.createdAt
+            id: ideas.id,
+            label: ideas.summary,
+            content: ideas.content,
+            type: ideas.type,
+            category: ideas.category,  // ✅ 添加这一行
+            createdAt: ideas.createdAt
         }).from(ideas).where(eq(ideas.userId, userId));
 
         const ideaIds = nodes.map(n => n.id);
         const edges = ideaIds.length
             ? await db.select({
-                source: links.fromIdeaId, target: links.toIdeaId, strength: links.strength, reason: links.reason
+                source: links.fromIdeaId,
+                target: links.toIdeaId,
+                strength: links.strength,
+                reason: links.reason
             }).from(links).where(inArray(links.fromIdeaId, ideaIds))
             : [];
 
+        // ✅ 在返回数据中包含 category
         const finalNodes = nodes.map(n => ({
             id: n.id,
             label: n.label || (n.content ? n.content.slice(0, 50) : ''),
             content: n.content,
             type: n.type,
+            category: n.category,  // ✅ 添加这一行
             createdAt: n.createdAt,
             tags: [] as string[], // 如需标签，在前端按需另取或这里扩展查询
         }));
