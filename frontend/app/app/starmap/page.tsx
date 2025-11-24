@@ -1,83 +1,160 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { useAuthStore } from '@/lib/store';
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { useIdeasStore } from "../../../lib/store";
+import type { GraphNode } from "../../../lib/store";
+import api from "../../../lib/api";
+import ForceGraph from "../../../components/ForceGraph";
+import GraphLegend from "../../../components/GraphLegend";
+import GraphStats from "../../../components/GraphStats";
+import NodeDetailCard from "../../../components/NodeDetailCard";
 
-// 这是一个占位页面，实际实现需要更复杂的星图可视化
-export default function StarMapPage() {
-  const { user, restore } = useAuthStore();
-  const router = useRouter();
+export default function BrainstormPage() {
+    const { graphData, setGraphData } = useIdeasStore();
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedNode, setSelectedNode] = useState<{
+        node: GraphNode;
+        position: { x: number; y: number }
+    } | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      await restore();
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) router.push('/auth');
-    })();
-  }, [router]);
+    // ✅ 获取图数据
+    const fetchGraphData = async () => {
+        try {
+            setLoading(true);
+            const { data } = await api.get('/ideas/graph/data');
+            console.log('🔍 API 返回的原始数据:', data);
+            setGraphData(data);
+        } catch (error) {
+            console.error('❌ 获取图数据失败:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  if (!user) return null;
+    useEffect(() => {
+        fetchGraphData();
+    }, []);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {/* 导航栏 */}
-      <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10">
-        <div className="px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => router.push('/app')}
-            className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>返回</span>
-          </button>
-          <h1 className="text-2xl font-bold text-white">
-            🌟 笔记星图
-          </h1>
-        </div>
-      </nav>
+    // ✅ 处理图数据
+    const processedGraphData = useMemo(() => {
+        if (!graphData?.nodes || !graphData?.links) {
+            console.warn('⚠️ graphData 为空');
+            return { nodes: [], links: [] };
+        }
 
-      {/* 主内容 */}
-      <main className="flex-1 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-8 text-center">
-            <div className="text-white/80 mb-6">
-              <h2 className="text-3xl font-bold mb-4">🚧 星图页面开发中</h2>
-              <p className="text-lg">
-                这里将展示所有笔记的完整星图可视化，包括笔记间的关联关系和标签分布。
-              </p>
-              <p className="text-sm mt-4 text-white/60">
-                功能包括：拖拽节点、缩放视图、搜索笔记、查看关联详情等
-              </p>
+        const nodes: GraphNode[] = graphData.nodes.map((node: any) => ({
+            id: String(node.id),  // 强制字符串
+            label: node.label || node.content?.slice(0, 30) || '未命名',
+            content: node.content || '',
+            tags: node.tags || [],
+            type: node.type || "TEXT",
+            createdAt: node.createdAt,
+        }));
+
+        const links = graphData.links.map((link: any) => ({
+            source: String(link.source),
+            target: String(link.target),
+            strength: link.strength || 0.5,
+        }));
+
+        console.log('📊 处理后的图数据:', {
+            节点数: nodes.length,
+            连线数: links.length,
+            示例节点: nodes[0],
+            示例连线: links[0]
+        });
+
+        return { nodes, links };
+    }, [graphData]);
+
+    // ✅ 节点点击
+    const handleNodeClick = useCallback((node: GraphNode, event: { clientX: number; clientY: number }) => {
+        console.log('🖱️ 点击节点:', node.label);
+        setSelectedNode({
+            node,
+            position: { x: event.clientX, y: event.clientY },
+        });
+    }, []);
+
+    // ✅ 更新后刷新数据
+    const handleUpdate = useCallback(() => {
+        fetchGraphData();
+    }, []);
+
+    // ✅ 删除后刷新数据
+    const handleDelete = useCallback((id: string) => {
+        fetchGraphData();
+        setSelectedNode(null);
+    }, []);
+
+    const allTags = useMemo(() => {
+        if (!graphData?.nodes) return new Set();
+        return new Set(graphData.nodes.flatMap((node: any) => node.tags || []));
+    }, [graphData]);
+
+    if (loading) {
+        return (
+            <div className="h-full flex items-center justify-center bg-gray-950">
+                <div className="text-center space-y-3">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-gray-300">正在加载灵感星图...</p>
+                </div>
             </div>
-            
-            {/* 简单的占位星图 */}
-            <div className="relative h-96 bg-black/20 rounded-xl border border-white/10 flex items-center justify-center">
-              <div className="text-white/40 text-sm">
-                完整的交互式星图将在这里显示
-              </div>
-              
-              {/* 模拟节点 */}
-              <div className="absolute top-1/4 left-1/4 w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
-              <div className="absolute top-1/3 right-1/4 w-4 h-4 bg-purple-400 rounded-full animate-pulse"></div>
-              <div className="absolute bottom-1/3 left-1/3 w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
-              <div className="absolute bottom-1/4 right-1/3 w-4 h-4 bg-yellow-400 rounded-full animate-pulse"></div>
-              
-              {/* 模拟连线 */}
-              <div className="absolute top-1/4 left-1/4 w-1/4 h-1 bg-gradient-to-r from-blue-400 to-purple-400 transform rotate-45 opacity-50"></div>
-              <div className="absolute top-1/3 right-1/4 w-1/4 h-1 bg-gradient-to-r from-purple-400 to-green-400 transform -rotate-45 opacity-50"></div>
+        );
+    }
+
+    if (!graphData?.nodes || graphData.nodes.length === 0) {
+        return (
+            <div className="h-full flex items-center justify-center bg-gray-950">
+                <div className="text-center space-y-3">
+                    <p className="text-gray-300 text-lg">✨ 暂无灵感数据</p>
+                    <p className="text-sm text-gray-400">先去主界面记录一些灵感吧！</p>
+                </div>
             </div>
-            
-            <button
-              onClick={() => router.push('/app')}
-              className="mt-8 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
-            >
-              返回主页面
-            </button>
-          </div>
+        );
+    }
+
+    return (
+        <div className="fixed inset-0 top-[57px] bg-gray-950">
+            {/* 搜索框 */}
+            <div className="fixed right-4 top-[73px] z-30">
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="🔍 搜索灵感..."
+                    className="px-4 py-2 w-64 bg-gray-800/80 backdrop-blur border border-gray-600 rounded-lg text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg"
+                />
+            </div>
+
+            {/* 力导向图 */}
+            <ForceGraph
+                data={processedGraphData}
+                onNodeClick={handleNodeClick}
+                searchQuery={searchQuery}
+            />
+
+            {/* 图例 */}
+            <GraphLegend />
+
+            {/* 统计 */}
+            <GraphStats
+                nodeCount={processedGraphData.nodes.length}
+                linkCount={processedGraphData.links.length}
+                tagCount={allTags.size}
+            />
+
+            {/* 节点详情卡片 */}
+            {selectedNode && (
+                <NodeDetailCard
+                    node={selectedNode.node}
+                    position={selectedNode.position}
+                    onClose={() => setSelectedNode(null)}
+                    onUpdate={handleUpdate}  // ✅ 传递更新回调
+                    onDelete={handleDelete}  // ✅ 传递删除回调
+                />
+            )}
         </div>
-      </main>
-    </div>
-  );
+    );
 }

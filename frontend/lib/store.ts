@@ -43,6 +43,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 }));
 
+// 原有的 Idea 接口
 interface Idea {
     id: string;
     content: string;
@@ -64,18 +65,47 @@ interface Idea {
     };
 }
 
+// ✅ 新增：图数据专用接口
+interface GraphNode {
+    id: string;
+    label: string;
+    content: string;
+    tags: string[];
+    type: string;
+    createdAt: string;
+}
+
+interface GraphLink {
+    source: string;
+    target: string;
+    strength: number;
+}
+
+interface GraphData {
+    nodes: GraphNode[];
+    links: GraphLink[];
+}
+
+// ✅ 修改：扩展 Store 状态
 interface IdeasState {
     ideas: Idea[];
+    graphData: GraphData | null;  // ✅ 新增图数据
     setIdeas: (ideas: Idea[]) => void;
+    setGraphData: (data: GraphData) => void;  // ✅ 新增设置方法
     addIdea: (idea: Idea) => void;
     removeIdea: (id: string) => void;
 }
 
 export const useIdeasStore = create<IdeasState>((set) => ({
     ideas: [],
+    graphData: null,  // ✅ 初始化
     setIdeas: (ideas) => set({ ideas }),
+    setGraphData: (data) => set({ graphData: data }),  // ✅ 新增
     addIdea: (idea) => set((state) => ({ ideas: [idea, ...state.ideas] })),
     removeIdea: (id) => set((state) => ({
         ideas: state.ideas.filter(i => i.id !== id)
     }))
 }));
+
+// ✅ 导出类型供其他文件使用
+export type { Idea, GraphNode, GraphLink, GraphData };
