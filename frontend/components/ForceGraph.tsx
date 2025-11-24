@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { GraphNode, GraphLink, GraphData } from "../lib/store";
-import { Hexagon } from "lucide-react";
+import { X } from "lucide-react";
 
 export interface ForceGraphProps {
   data: GraphData;
@@ -20,6 +20,11 @@ interface ExtendedGraphNode extends GraphNode {
   mass?: number;  // 节点质量
 }
 
+// ✅ 扩展 GraphLink 添加连接理由
+interface ExtendedGraphLink extends GraphLink {
+  reason?: string;
+}
+
 export default function ForceGraph({
   data,
   onNodeClick,
@@ -29,8 +34,18 @@ export default function ForceGraph({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [nodes, setNodes] = useState<ExtendedGraphNode[]>([]);
-  const [links, setLinks] = useState<GraphLink[]>([]);
-  
+  const [links, setLinks] = useState<ExtendedGraphLink[]>([]);
+
+  // ✅ 选中的连线（用于高亮和显示理由）
+  const [selectedLink, setSelectedLink] = useState<{
+    link: ExtendedGraphLink;
+    sourceId: string;
+    targetId: string;
+  } | null>(null);
+
+  // ✅ 动画目标位置
+  const targetPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+
   const draggedNode = useRef<ExtendedGraphNode | null>(null);
   const offset = useRef({ x: 0, y: 0 });
   const scale = useRef(1);
@@ -81,8 +96,8 @@ export default function ForceGraph({
 
   // 初始化节点位置
   useEffect(() => {
-    console.log('🎯 ForceGraph 收到数据:', { 
-      节点数: data.nodes.length, 
+    console.log('🎯 ForceGraph 收到数据:', {
+      节点数: data.nodes.length,
       连线数: data.links.length,
       示例节点: data.nodes[0],
       示例连线: data.links[0]
@@ -95,13 +110,65 @@ export default function ForceGraph({
       y: node.y ?? height / 2 + (Math.random() - 0.5) * 200,
       vx: 0,
       vy: 0,
-      mass: getNodeMass((node as any).category),  // ✅ 设置质量
+      mass: getNodeMass((node as any).category),
     }));
     setNodes(initializedNodes);
-    setLinks(data.links);
+    setLinks(data.links as ExtendedGraphLink[]);
   }, [data, dimensions]);
 
-  // ✅ 物理模拟（考虑质量）
+  // ✅ 点击连线，将其移动到屏幕中央
+  // ✅ 点击连线，将其移动到屏幕中央（考虑屏幕边界）
+  const centerLink = useCallback((link: ExtendedGraphLink, sourceNode: ExtendedGraphNode, targetNode: ExtendedGraphNode) => {
+    const { width, height } = dimensions;
+
+    // ✅ 计算安全区域（考虑节点半径、标签空间）
+    const nodePadding = 80;  // 节点半径 + 下方"起点/终点"标签空间
+    const topPadding = 150;  // 上方"连接理由"框的空间
+    const bottomPadding = 100;  // 下方标签空间
+
+    const safeLeft = nodePadding;
+    const safeRight = width - nodePadding;
+    const safeTop = topPadding;
+    const safeBottom = height - bottomPadding;
+
+    // ✅ 计算可用空间
+    const availableWidth = safeRight - safeLeft;
+    const availableHeight = safeBottom - safeTop;
+
+    // ✅ 期望的连线长度（占可用宽度的60%，但不超过400px）
+    const desiredLength = Math.min(availableWidth * 0.6, 400);
+
+    // ✅ 计算中心点（垂直方向稍微偏上，给连接理由留空间）
+    const centerX = width / 2;
+    const centerY = safeTop + availableHeight * 0.5;  // 在安全区域内居中
+
+    // ✅ 设置两个节点的目标位置（水平排列）
+    targetPositions.current.clear();
+    targetPositions.current.set(sourceNode.id, {
+      x: Math.max(safeLeft, Math.min(centerX - desiredLength / 2, safeRight)),
+      y: centerY
+    });
+    targetPositions.current.set(targetNode.id, {
+      x: Math.max(safeLeft, Math.min(centerX + desiredLength / 2, safeRight)),
+      y: centerY
+    });
+
+    // 设置选中状态
+    setSelectedLink({
+      link,
+      sourceId: sourceNode.id,
+      targetId: targetNode.id
+    });
+  }, [dimensions]);
+
+  // ✅ 取消选中
+  const clearSelection = useCallback(() => {
+    setSelectedLink(null);
+    targetPositions.current.clear();
+  }, []);
+
+  // ✅ 物理模拟（带平滑动画）
+  // ✅ 物理模拟（优化参数，更柔和）
   useEffect(() => {
     if (nodes.length === 0) return;
 
@@ -113,82 +180,151 @@ export default function ForceGraph({
         const newNodes = prevNodes.map(node => ({ ...node }));
         const dragged = draggedNode.current;
 
-        // ✅ 斥力（考虑质量）
-        for (let i = 0; i < newNodes.length; i++) {
-          for (let j = i + 1; j < newNodes.length; j++) {
-            const dx = newNodes[j].x! - newNodes[i].x!;
-            const dy = newNodes[j].y! - newNodes[i].y!;
+        // ✅ 如果有目标位置，平滑移动到目标
+        targetPositions.current.forEach((target, nodeId) => {
+          const node = newNodes.find(n => n.id === nodeId);
+          if (!node) return;
+
+          const dx = target.x - node.x!;
+          const dy = target.y - node.y!;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist > 1) {
+            // 平滑移动（速度与距离成正比）
+            const speed = 0.15;
+            node.x! += dx * speed;
+            node.y! += dy * speed;
+            node.vx = 0;
+            node.vy = 0;
+          } else {
+            // 到达目标位置
+            node.x = target.x;
+            node.y = target.y;
+            node.vx = 0;
+            node.vy = 0;
+          }
+        });
+
+        // ✅ 对于没有目标位置的节点，应用物理引擎
+        if (targetPositions.current.size === 0) {
+          // ✅ 斥力（减弱强度，增加柔和度）
+          for (let i = 0; i < newNodes.length; i++) {
+            for (let j = i + 1; j < newNodes.length; j++) {
+              const dx = newNodes[j].x! - newNodes[i].x!;
+              const dy = newNodes[j].y! - newNodes[i].y!;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+              // ✅ 减弱斥力：1500 -> 1000，最大力 8 -> 4
+              const force = Math.min(1000 / (dist * dist), 4);
+
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+
+              const massI = newNodes[i].mass || 1;
+              const massJ = newNodes[j].mass || 1;
+
+              // ✅ 增加质量影响，让移动更缓慢
+              newNodes[i].vx! -= fx / (massI * 1.5);
+              newNodes[i].vy! -= fy / (massI * 1.5);
+              newNodes[j].vx! += fx / (massJ * 1.5);
+              newNodes[j].vy! += fy / (massJ * 1.5);
+            }
+          }
+
+          // ✅ 引力（减弱强度）
+          links.forEach(link => {
+            const source = newNodes.find(n => n.id === link.source);
+            const target = newNodes.find(n => n.id === link.target);
+            if (!source || !target) return;
+
+            const dx = target.x! - source.x!;
+            const dy = target.y! - source.y!;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = Math.min(2000 / (dist * dist), 8);
+            const strength = link.strength ?? 0.3;
+
+            // ✅ 减弱引力：0.08 -> 0.04，理想距离 120 -> 150
+            const force = (dist - 150) * strength * 0.04;
 
             const fx = (dx / dist) * force;
             const fy = (dy / dist) * force;
 
-            // ✅ 力的影响与质量成反比
-            const massI = newNodes[i].mass || 1;
-            const massJ = newNodes[j].mass || 1;
+            const massS = source.mass || 1;
+            const massT = target.mass || 1;
 
-            newNodes[i].vx! -= fx / massI;
-            newNodes[i].vy! -= fy / massI;
-            newNodes[j].vx! += fx / massJ;
-            newNodes[j].vy! += fy / massJ;
-          }
+            source.vx! += fx / (massS * 1.5);
+            source.vy! += fy / (massS * 1.5);
+            target.vx! -= fx / (massT * 1.5);
+            target.vy! -= fy / (massT * 1.5);
+          });
+
+          // ❌ 取消向心力
+          // const centerX = width / 2;
+          // const centerY = height / 2;
+          // newNodes.forEach(node => {
+          //   const dx = centerX - node.x!;
+          //   const dy = centerY - node.y!;
+          //   const mass = node.mass || 1;
+          //   node.vx! += dx * 0.002 / mass;
+          //   node.vy! += dy * 0.002 / mass;
+          // });
+
+          // ✅ 更新位置（增强阻尼，减少弹性）
+          // ✅ 更新位置（增加阻力，防止匀速运动）
+          newNodes.forEach(node => {
+            if (dragged?.id === node.id) return;
+            if (targetPositions.current.has(node.id)) return;
+
+            // ✅ 详细模式下，冻结未选中的节点
+            if (selectedLink && node.id !== selectedLink.sourceId && node.id !== selectedLink.targetId) {
+              node.vx = 0;
+              node.vy = 0;
+              return;
+            }
+
+            const mass = node.mass || 1;
+
+            const baseDamping = 0.68;
+            const massDamping = (mass - 1) * 0.08;
+            const damping = baseDamping + massDamping;
+
+            node.vx! *= damping;
+            node.vy! *= damping;
+
+            const stopThreshold = 0.05;
+            if (Math.abs(node.vx!) < stopThreshold) node.vx = 0;
+            if (Math.abs(node.vy!) < stopThreshold) node.vy = 0;
+
+            const maxSpeed = 5;
+            const speed = Math.sqrt(node.vx! ** 2 + node.vy! ** 2);
+            if (speed > maxSpeed) {
+              node.vx! = (node.vx! / speed) * maxSpeed;
+              node.vy! = (node.vy! / speed) * maxSpeed;
+            }
+
+            node.x! += node.vx!;
+            node.y! += node.vy!;
+
+            const padding = 30;
+            const bounceForce = 0.5;
+
+            if (node.x! < padding) {
+              node.x = padding;
+              node.vx = Math.abs(node.vx!) * bounceForce;
+            }
+            if (node.x! > width - padding) {
+              node.x = width - padding;
+              node.vx = -Math.abs(node.vx!) * bounceForce;
+            }
+            if (node.y! < padding) {
+              node.y = padding;
+              node.vy = Math.abs(node.vy!) * bounceForce;
+            }
+            if (node.y! > height - padding) {
+              node.y = height - padding;
+              node.vy = -Math.abs(node.vy!) * bounceForce;
+            }
+          });
         }
-
-        // ✅ 引力（考虑质量）
-        links.forEach(link => {
-          const source = newNodes.find(n => n.id === link.source);
-          const target = newNodes.find(n => n.id === link.target);
-          if (!source || !target) return;
-
-          const dx = target.x! - source.x!;
-          const dy = target.y! - source.y!;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const strength = link.strength ?? 0.3;
-          const force = (dist - 120) * strength * 0.08;
-
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-
-          const massS = source.mass || 1;
-          const massT = target.mass || 1;
-
-          source.vx! += fx / massS;
-          source.vy! += fy / massS;
-          target.vx! -= fx / massT;
-          target.vy! -= fy / massT;
-        });
-
-        // 向中心的力
-        const centerX = width / 2;
-        const centerY = height / 2;
-        newNodes.forEach(node => {
-          const dx = centerX - node.x!;
-          const dy = centerY - node.y!;
-          const mass = node.mass || 1;
-          node.vx! += dx * 0.002 / mass;
-          node.vy! += dy * 0.002 / mass;
-        });
-
-        // ✅ 更新位置（阻尼与质量相关）
-        newNodes.forEach(node => {
-          if (dragged?.id === node.id) return;
-
-          const mass = node.mass || 1;
-          const damping = 0.85 + (mass - 1) * 0.05;  // 质量越大，阻尼越大
-
-          node.vx! *= damping;
-          node.vy! *= damping;
-
-          node.x! += node.vx!;
-          node.y! += node.vy!;
-
-          // 边界
-          if (node.x! < 30) { node.x = 30; node.vx = 0; }
-          if (node.x! > width - 30) { node.x = width - 30; node.vx = 0; }
-          if (node.y! < 30) { node.y = 30; node.vy = 0; }
-          if (node.y! > height - 30) { node.y = height - 30; node.vy = 0; }
-        });
 
         return newNodes;
       });
@@ -198,9 +334,9 @@ export default function ForceGraph({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [nodes.length, links, dimensions]);
-  
-  // ✅ 绘制（使用分类颜色）
+  }, [nodes.length, links, dimensions, selectedLink]);
+
+  // ✅ 绘制（包括连接理由和黑化效果）
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -211,50 +347,154 @@ export default function ForceGraph({
     const { width, height } = dimensions;
 
     ctx.clearRect(0, 0, width, height);
-    
+
     ctx.save();
     ctx.translate(panOffset.current.x, panOffset.current.y);
     ctx.scale(scale.current, scale.current);
+
+    // ✅ 如果有选中的连线，先绘制黑化背景
+    if (selectedLink) {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(-panOffset.current.x / scale.current, -panOffset.current.y / scale.current, width / scale.current, height / scale.current);
+    }
 
     // 绘制连线
     let drawnLinks = 0;
     links.forEach(link => {
       const source = nodes.find(n => n.id === link.source);
       const target = nodes.find(n => n.id === link.target);
-      
+
       if (!source || !target) {
-        console.warn('❌ 连线缺少节点:', { 
-          link, 
-          sourceId: link.source,
-          targetId: link.target,
-          availableIds: nodes.map(n => n.id).slice(0, 5) + '...' 
-        });
         return;
       }
 
-      ctx.strokeStyle = "#60a5fa";
-      ctx.globalAlpha = 0.6;
-      ctx.lineWidth = Math.max(link.strength * 3, 2);
+      const isSelected = selectedLink?.sourceId === source.id && selectedLink?.targetId === target.id;
+
+      // ✅ 选中的连线使用渐变色和更粗的线条
+      if (isSelected) {
+        const gradient = ctx.createLinearGradient(source.x!, source.y!, target.x!, target.y!);
+        gradient.addColorStop(0, "#3b82f6");
+        gradient.addColorStop(0.5, "#8b5cf6");
+        gradient.addColorStop(1, "#ec4899");
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 6;
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.strokeStyle = "#60a5fa";
+        ctx.lineWidth = Math.max((link.strength ?? 0.3) * 3, 2);
+        ctx.globalAlpha = selectedLink ? 0.1 : 0.6;  // ✅ 非选中连线变暗
+      }
+
+      ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(source.x!, source.y!);
       ctx.lineTo(target.x!, target.y!);
       ctx.stroke();
+
       drawnLinks++;
     });
 
-    if (links.length > 0 && drawnLinks === 0) {
-      console.error('🚨 有连线数据但没有绘制任何线！');
-    } else if (links.length > 0) {
-      console.log(`✅ 成功绘制 ${drawnLinks}/${links.length} 条连线`);
-    }
-
     ctx.globalAlpha = 1;
 
-    // ✅ 绘制节点（使用分类颜色）
+    // ✅ 绘制选中连线的理由文本
+    if (selectedLink) {
+      const source = nodes.find(n => n.id === selectedLink.sourceId);
+      const target = nodes.find(n => n.id === selectedLink.targetId);
+
+      if (source && target) {
+        const reason = selectedLink.link.reason || "未提供连接理由";
+        const centerX = (source.x! + target.x!) / 2;
+        const centerY = (source.y! + target.y!) / 2;
+        const lineWidth = Math.abs(target.x! - source.x!);
+
+        // ✅ 在连线上方显示
+        const boxWidth = Math.min(lineWidth * 0.8, 450);
+        const lineY = centerY - 30;
+
+        // ✅ 先绘制"连接理由"标题，计算其高度
+        ctx.font = "bold 16px sans-serif";
+        const titleHeight = 30;
+
+        // 文字换行处理
+        ctx.font = "15px sans-serif";
+        ctx.textAlign = "center";
+
+        const maxWidth = boxWidth - 40;
+        const chars = reason.split('');
+        let line = '';
+        const lines: string[] = [];
+
+        for (let i = 0; i < chars.length; i++) {
+          const testLine = line + chars[i];
+          const metrics = ctx.measureText(testLine);
+
+          if (metrics.width > maxWidth && line !== '') {
+            lines.push(line);
+            line = chars[i];
+          } else {
+            line = testLine;
+          }
+        }
+        if (line) lines.push(line);
+
+        // 计算总高度
+        const lineHeight = 26;
+        const contentHeight = lines.length * lineHeight;
+        const totalHeight = titleHeight + contentHeight + 20;  // 标题 + 内容 + 内边距
+        const boxY = lineY - totalHeight;
+        const boxX = centerX - boxWidth / 2;
+
+        // 绘制背景框
+        ctx.fillStyle = "rgba(30, 41, 59, 0.98)";
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxWidth, totalHeight, 12);
+        ctx.fill();
+
+        // 发光边框
+        ctx.strokeStyle = "rgba(139, 92, 246, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = "rgba(139, 92, 246, 0.5)";
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // ✅ 绘制"连接理由"标题（在最上方居中）
+        ctx.font = "bold 16px sans-serif";
+        ctx.fillStyle = "rgba(139, 92, 246, 1)";
+        ctx.textBaseline = "top";
+        ctx.fillText("连接理由", centerX, boxY + 10);
+
+        // ✅ 绘制分隔线
+        ctx.strokeStyle = "rgba(139, 92, 246, 0.3)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(boxX + 20, boxY + titleHeight);
+        ctx.lineTo(boxX + boxWidth - 20, boxY + titleHeight);
+        ctx.stroke();
+
+        // ✅ 绘制理由内容文字（在标题下方）
+        ctx.font = "15px sans-serif";
+        ctx.fillStyle = "#e5e7eb";
+        ctx.textBaseline = "top";
+        lines.forEach((line, i) => {
+          ctx.fillText(line, centerX, boxY + titleHeight + 10 + i * lineHeight);
+        });
+      }
+    }
+
+    // 绘制节点
     nodes.forEach(node => {
       const isHighlight = searchQuery && node.label.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // 高亮光晕
+      const isInSelectedLink = selectedLink && (node.id === selectedLink.sourceId || node.id === selectedLink.targetId);
+
+      // ✅ 非选中节点变暗
+      if (selectedLink && !isInSelectedLink) {
+        ctx.globalAlpha = 0.2;
+      } else {
+        ctx.globalAlpha = 1;
+      }
+
       if (isHighlight) {
         const gradient = ctx.createRadialGradient(node.x!, node.y!, 16, node.x!, node.y!, 28);
         gradient.addColorStop(0, "rgba(239, 68, 68, 0.4)");
@@ -265,37 +505,42 @@ export default function ForceGraph({
         ctx.fill();
       }
 
-      // ✅ 根据质量调整节点大小
       const mass = node.mass || 1;
       const baseRadius = 18;
-      const radius = baseRadius + (mass - 1) * 3;  // 质量越大，节点越大
+      const radius = baseRadius + (mass - 1) * 3;  // ✅ 不再因为选中而放大
 
-      // 主圆形
       ctx.beginPath();
       ctx.arc(node.x!, node.y!, radius, 0, Math.PI * 2);
-      
-      // ✅ 使用分类颜色
+
+      // ✅ 保持原本的颜色
       if (isHighlight) {
-        ctx.fillStyle = "#ef4444";  // 搜索高亮保持红色
+        ctx.fillStyle = "#ef4444";
       } else {
         ctx.fillStyle = getNodeColor(node.category);
       }
       ctx.fill();
-      
-      // ✅ 边框宽度与质量相关
+
       ctx.strokeStyle = darkenColorPercent(getNodeColor(node.category), 30);
       ctx.lineWidth = 1 + mass * 0.5;
       ctx.stroke();
 
-      // 节点文字
+      // ✅ 节点内始终显示原本的 label
       ctx.fillStyle = "#fff";
       ctx.font = "bold 11px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(node.label, node.x!, node.y!);
 
-      // 标签数量指示器
-      if (node.tags && node.tags.length > 0) {
+      // ✅ 如果是选中的节点，在下方显示"起点"或"终点"
+      if (isInSelectedLink) {
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillStyle = node.id === selectedLink.sourceId ? "#3b82f6" : "#ec4899";
+        ctx.textBaseline = "top";
+        const labelText = node.id === selectedLink.sourceId ? "起点" : "终点";
+        ctx.fillText(labelText, node.x!, node.y! + radius + 8);
+      }
+
+      if (node.tags && node.tags.length > 0 && !isInSelectedLink) {
         ctx.fillStyle = "#fbbf24";
         ctx.beginPath();
         ctx.arc(node.x! + radius - 6, node.y! - radius + 6, 6, 0, Math.PI * 2);
@@ -306,8 +551,9 @@ export default function ForceGraph({
       }
     });
 
+    ctx.globalAlpha = 1;
     ctx.restore();
-  }, [nodes, links, searchQuery, dimensions]);
+  }, [nodes, links, searchQuery, dimensions, selectedLink]);
 
   // 屏幕坐标转画布坐标
   const screenToCanvas = useCallback((clientX: number, clientY: number) => {
@@ -320,47 +566,116 @@ export default function ForceGraph({
   // 查找点击的节点
   const findNodeAtPosition = useCallback((x: number, y: number) => {
     return nodes.find(node => {
-      const radius = 18 + ((node.mass || 1) - 1) * 3;
+      const isInSelectedLink = selectedLink && (node.id === selectedLink.sourceId || node.id === selectedLink.targetId);
+      const radius = isInSelectedLink ? 18 + 8 : 18 + ((node.mass || 1) - 1) * 3;
       const dx = node.x! - x;
       const dy = node.y! - y;
       return Math.sqrt(dx * dx + dy * dy) < radius;
     });
-  }, [nodes]);
+  }, [nodes, selectedLink]);
 
-  // 鼠标按下
+  // ✅ 查找点击的连线
+  const findLinkAtPosition = useCallback((x: number, y: number) => {
+    for (const link of links) {
+      const source = nodes.find(n => n.id === link.source);
+      const target = nodes.find(n => n.id === link.target);
+
+      if (!source || !target) continue;
+
+      // 计算点到线段的距离
+      const dx = target.x! - source.x!;
+      const dy = target.y! - source.y!;
+      const length = Math.sqrt(dx * dx + dy * dy);
+
+      if (length === 0) continue;
+
+      const t = Math.max(0, Math.min(1, ((x - source.x!) * dx + (y - source.y!) * dy) / (length * length)));
+      const projX = source.x! + t * dx;
+      const projY = source.y! + t * dy;
+
+      const distance = Math.sqrt((x - projX) ** 2 + (y - projY) ** 2);
+
+      if (distance < 10) {
+        return { link, source, target };
+      }
+    }
+    return null;
+  }, [nodes, links]);
+
+  // ✅ 鼠标按下（选中状态时禁用画布交互）
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = screenToCanvas(e.clientX, e.clientY);
-    const clicked = findNodeAtPosition(x, y);
 
-    if (clicked) {
-      draggedNode.current = clicked;
-      offset.current = { x: x - clicked.x!, y: y - clicked.y! };
-    } else {
+    // ✅ 详细模式下的特殊处理
+    if (selectedLink) {
+      const clickedNode = findNodeAtPosition(x, y);
+
+      // 如果点击了选中的节点，触发编辑
+      if (clickedNode && (clickedNode.id === selectedLink.sourceId || clickedNode.id === selectedLink.targetId)) {
+        onNodeClick?.(clickedNode, { clientX: e.clientX, clientY: e.clientY });
+        return;
+      }
+
+      // 如果点击了其他节点，不做任何操作
+      if (clickedNode) {
+        return;
+      }
+
+      // ✅ 点击空白处，允许开始拖拽画布
       isPanning.current = true;
       lastPanPosition.current = { x: e.clientX, y: e.clientY };
+      return;
     }
-  }, [screenToCanvas, findNodeAtPosition]);
 
-  // ✅ 鼠标移动（考虑质量阻力）
+    // 正常模式下的原有逻辑
+    const clickedNode = findNodeAtPosition(x, y);
+    if (clickedNode) {
+      draggedNode.current = clickedNode;
+      offset.current = { x: x - clickedNode.x!, y: y - clickedNode.y! };
+      return;
+    }
+
+    const clickedLink = findLinkAtPosition(x, y);
+    if (clickedLink) {
+      centerLink(clickedLink.link, clickedLink.source, clickedLink.target);
+      return;
+    }
+
+    isPanning.current = true;
+    lastPanPosition.current = { x: e.clientX, y: e.clientY };
+  }, [screenToCanvas, findNodeAtPosition, findLinkAtPosition, centerLink, selectedLink, onNodeClick]);
+
+  // ✅ 鼠标移动（选中状态时禁用）
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const currentDraggedNode = draggedNode.current;
-    
+
+    // ✅ 详细模式下只允许拖拽画布
+    if (selectedLink) {
+      if (isPanning.current) {
+        const dx = e.clientX - lastPanPosition.current.x;
+        const dy = e.clientY - lastPanPosition.current.y;
+        panOffset.current.x += dx;
+        panOffset.current.y += dy;
+        lastPanPosition.current = { x: e.clientX, y: e.clientY };
+      }
+      return;
+    }
+
+    // 正常模式下的原有逻辑
     if (currentDraggedNode) {
       const { x, y } = screenToCanvas(e.clientX, e.clientY);
       const mass = currentDraggedNode.mass || 1;
-      
+
       setNodes(prev =>
         prev.map(node => {
           if (node.id === currentDraggedNode.id) {
-            // ✅ 质量越大，拖动时的响应速度越慢
             const targetX = x - offset.current.x;
             const targetY = y - offset.current.y;
             const currentX = node.x!;
             const currentY = node.y!;
-            
-            // 使用插值实现"重量感"
-            const damping = 0.3 / mass;  // 质量越大，移动越慢
-            
+
+            const damping = 0.3 / mass;
+
             return {
               ...node,
               x: currentX + (targetX - currentX) * damping,
@@ -379,63 +694,70 @@ export default function ForceGraph({
       panOffset.current.y += dy;
       lastPanPosition.current = { x: e.clientX, y: e.clientY };
     }
-  }, [screenToCanvas]);
+  }, [screenToCanvas, selectedLink]);
 
   // 鼠标抬起
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // ✅ 详细模式下的处理
+    if (selectedLink) {
+      isPanning.current = false;
+      return;
+    }
+
+    // 正常模式下的原有逻辑
     const currentDraggedNode = draggedNode.current;
-    
+
     if (currentDraggedNode) {
       const { x, y } = screenToCanvas(e.clientX, e.clientY);
       const dx = x - offset.current.x - currentDraggedNode.x!;
       const dy = y - offset.current.y - currentDraggedNode.y!;
-      
+
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
         onNodeClick?.(currentDraggedNode, { clientX: e.clientX, clientY: e.clientY });
       }
-      
+
       draggedNode.current = null;
     }
     isPanning.current = false;
-  }, [screenToCanvas, onNodeClick]);
+  }, [screenToCanvas, onNodeClick, selectedLink]);
 
   // 缩放
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    // ✅ 详细模式下也允许缩放
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.min(Math.max(scale.current * delta, 0.3), 3);
-    
+
     const rect = canvasRef.current!.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
     panOffset.current.x = mouseX - (mouseX - panOffset.current.x) * (newScale / scale.current);
     panOffset.current.y = mouseY - (mouseY - panOffset.current.y) * (newScale / scale.current);
-    
+
     scale.current = newScale;
-  }, []);
+  }, []); // ✅ 移除 selectedLink 依赖
 
   // 颜色加深
-  function darkenColorPercent(hex : string, percent = 20) {
+  function darkenColorPercent(hex: string, percent = 20) {
     hex = hex.replace('#', '');
 
     let r = parseInt(hex.substring(0, 2), 16);
     let g = parseInt(hex.substring(2, 4), 16);
     let b = parseInt(hex.substring(4, 6), 16);
 
-    // 按百分比减少
     r = Math.max(0, Math.floor(r * (1 - percent / 100)));
     g = Math.max(0, Math.floor(g * (1 - percent / 100)));
     b = Math.max(0, Math.floor(b * (1 - percent / 100)));
 
-    const toHex = (n) => n.toString(16).padStart(2, '0');
-    
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
+    const toHex = (n: number) => n.toString(16).padStart(2, '0');
 
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
+      {/* Canvas 图层 */}
       <canvas
         ref={canvasRef}
         width={dimensions.width}
@@ -445,7 +767,13 @@ export default function ForceGraph({
           width: "100%",
           height: "100%",
           background: "linear-gradient(to bottom, #0f172a, #1e293b)",
-          cursor: draggedNode.current ? "grabbing" : isPanning.current ? "grabbing" : "grab",
+          cursor: selectedLink
+            ? (isPanning.current ? "grabbing" : "grab")  // ✅ 详细模式下显示可拖拽的指针
+            : draggedNode.current
+              ? "grabbing"
+              : isPanning.current
+                ? "grabbing"
+                : "grab",
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -453,6 +781,17 @@ export default function ForceGraph({
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
       />
+
+      {/* ✅ 关闭按钮（最上层，使用 fixed 定位） */}
+      {selectedLink && (
+        <button
+          onClick={clearSelection}
+          className="fixed top-20 left-6 z-[9999] p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/20 transition-all duration-300 hover:scale-110 group"
+          aria-label="关闭详情"
+        >
+          <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
+        </button>
+      )}
     </div>
   );
 }

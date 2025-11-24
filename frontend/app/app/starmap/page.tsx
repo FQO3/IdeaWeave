@@ -83,15 +83,18 @@ export default function StarmapPage() {
             category: node.category,
         }));
 
+        // ✅ 保留 reason 字段
         const links = graphData.links.map((link: any) => ({
             source: String(link.source),
             target: String(link.target),
             strength: link.strength || 0.5,
+            reason: link.reason || '',  // ✅ 添加这行
         }));
 
         console.log('📊 处理后的图数据:', {
             节点数: nodes.length,
             连线数: links.length,
+            示例连线: links[0],  // ✅ 调试用
         });
 
         return { nodes, links };

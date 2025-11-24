@@ -33,9 +33,9 @@ export default function NodeDetailCard({
     const [title, setTitle] = useState(node.label);
     const [category, setCategory] = useState<string>("");
     const [content, setContent] = useState(node.content);
-    const [tags, setTags] = useState<IdeaTag[]>([]);  // ✅ 标签状态
+    const [tags, setTags] = useState<IdeaTag[]>([]);
     const [loading, setLoading] = useState(false);
-    const [aiAnalysisStatus, setAiAnalysisStatus] = useState<string>("");  // ✅ AI 状态
+    const [aiAnalysisStatus, setAiAnalysisStatus] = useState<string>("");
 
     // 拖动状态
     const [cardPosition, setCardPosition] = useState(position);
@@ -53,8 +53,8 @@ export default function NodeDetailCard({
                 setTitle(data.title || data.summary || node.label);
                 setCategory(data.category || "");
                 setContent(data.content);
-                setTags(data.tags || []);  // ✅ 设置标签
-                setAiAnalysisStatus(data.aiAnalysisStatus || "");  // ✅ 设置 AI 状态
+                setTags(data.tags || []);
+                setAiAnalysisStatus(data.aiAnalysisStatus || "");
                 console.log('📋 获取到的完整数据:', {
                     id: data.id,
                     标签数: data.tags?.length,
@@ -79,7 +79,7 @@ export default function NodeDetailCard({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [onClose]);
 
-    // 拖动逻辑
+    // ✅ 拖动逻辑（允许超出左右边界）
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging) return;
@@ -87,11 +87,11 @@ export default function NodeDetailCard({
             const newX = e.clientX - dragOffset.x;
             const newY = e.clientY - dragOffset.y;
 
-            const maxX = window.innerWidth - 420;
+            // ✅ 只限制上下边界，不限制左右边界
             const maxY = window.innerHeight - 100;
 
             setCardPosition({
-                x: Math.max(0, Math.min(newX, maxX)),
+                x: newX,  // ✅ 移除左右限制
                 y: Math.max(0, Math.min(newY, maxY)),
             });
         };
