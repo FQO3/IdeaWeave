@@ -11,7 +11,7 @@ import GraphStats from "../../../components/GraphStats";
 import NodeDetailCard from "../../../components/NodeDetailCard";
 import MainLayout from "../../../components/MainLayout";
 
-export default function StarmapPage() {
+export default function StarMapPage() {
     const router = useRouter();
     const { graphData, setGraphData } = useIdeasStore();
     const [loading, setLoading] = useState(true);
@@ -48,13 +48,12 @@ export default function StarmapPage() {
         router.push('/');
     };
 
-    // ✅ 获取图数据
     const fetchGraphData = async () => {
         try {
             setLoading(true);
             const { data } = await api.get('/ideas/graph/data');
             console.log('🔍 API 返回的原始数据:', data);
-            setGraphData(data);
+            setGraphData(data);  // ✅ 直接传入 data 对象
         } catch (error) {
             console.error('❌ 获取图数据失败:', error);
         } finally {
@@ -66,10 +65,68 @@ export default function StarmapPage() {
         fetchGraphData();
     }, []);
 
+    // ✅ 正确的局部更新函数
+    const handleNodeUpdate = useCallback((updatedNode: Partial<GraphNode>) => {
+        console.log('🔄 开始更新节点:', updatedNode);
+        console.log('🔄 当前 graphData:', graphData);
+
+        if (!graphData) {
+            console.warn('⚠️ graphData 为空，无法更新');
+            return;
+        }
+
+        // ✅ 创建新的数据对象
+        const newGraphData: GraphData = {
+            nodes: graphData.nodes.map(node =>
+                node.id === updatedNode.id
+                    ? { ...node, ...updatedNode }
+                    : node
+            ),
+            links: graphData.links
+        };
+
+        console.log('🔄 更新后的数据:', newGraphData);
+
+        // ✅ 直接设置新数据
+        setGraphData(newGraphData);
+
+        // ✅ 同步更新选中节点
+        if (selectedNode && selectedNode.node.id === updatedNode.id) {
+            setSelectedNode({
+                ...selectedNode,
+                node: { ...selectedNode.node, ...updatedNode }
+            });
+        }
+    }, [graphData, selectedNode, setGraphData]);
+
+    // ✅ 正确的删除函数
+    const handleNodeDelete = useCallback((id: string) => {
+        console.log('🗑️ 删除节点:', id);
+
+        if (!graphData) {
+            console.warn('⚠️ graphData 为空，无法删除');
+            return;
+        }
+
+        // ✅ 创建新的数据对象
+        const newGraphData: GraphData = {
+            nodes: graphData.nodes.filter(node => node.id !== id),
+            links: graphData.links.filter(link =>
+                link.source !== id && link.target !== id
+            )
+        };
+
+        // ✅ 直接设置新数据
+        setGraphData(newGraphData);
+        setSelectedNode(null);
+    }, [graphData, setGraphData]);
+
     // ✅ 处理图数据
     const processedGraphData = useMemo(() => {
+        console.log('📊 processedGraphData 计算, graphData:', graphData);
+
         if (!graphData?.nodes || !graphData?.links) {
-            console.warn('⚠️ graphData 为空');
+            console.warn('⚠️ graphData 为空或不完整');
             return { nodes: [], links: [] };
         }
 
@@ -83,19 +140,14 @@ export default function StarmapPage() {
             category: node.category,
         }));
 
-        // ✅ 保留 reason 字段
         const links = graphData.links.map((link: any) => ({
             source: String(link.source),
             target: String(link.target),
             strength: link.strength || 0.5,
-            reason: link.reason || '',  // ✅ 添加这行
+            reason: link.reason || '',
         }));
 
-        console.log('📊 处理后的图数据:', {
-            节点数: nodes.length,
-            连线数: links.length,
-            示例连线: links[0],  // ✅ 调试用
-        });
+        console.log('📊 处理后的图数据:', { 节点数: nodes.length, 连线数: links.length });
 
         return { nodes, links };
     }, [graphData]);
@@ -107,14 +159,60 @@ export default function StarmapPage() {
         });
     }, []);
 
-    const handleUpdate = useCallback(() => {
-        fetchGraphData();
-    }, []);
+    // const handleUpdate = useCallback(() => {
+    //     fetchGraphData();
+    // }, []);
 
-    const handleDelete = useCallback((id: string) => {
-        fetchGraphData();
-        setSelectedNode(null);
-    }, []);
+    // const handleDelete = useCallback((id: string) => {
+    //     fetchGraphData();
+    //     setSelectedNode(null);
+    // }, []);
+
+    // // ✅ 局部更新节点数据（保持完整结构）
+    // const handleNodeUpdate = useCallback((updatedNode: Partial<GraphNode>) => {
+    //     setGraphData(prev => {
+    //         if (!prev) return prev;
+
+    //         console.log('🔄 更新前的数据:', prev);
+    //         console.log('🔄 更新的节点:', updatedNode);
+
+    //         const newData = {
+    //             ...prev,
+    //             nodes: prev.nodes.map(node =>
+    //                 node.id === updatedNode.id
+    //                     ? { ...node, ...updatedNode }  // ✅ 合并，保持原有字段
+    //                     : node
+    //             )
+    //         };
+
+    //         console.log('🔄 更新后的数据:', newData);
+    //         return newData;
+    //     });
+
+    //     // ✅ 同步更新选中节点
+    //     if (selectedNode && selectedNode.node.id === updatedNode.id) {
+    //         setSelectedNode(prev => ({
+    //             ...prev!,
+    //             node: { ...prev!.node, ...updatedNode }
+    //         }));
+    //     }
+    // }, [selectedNode]);
+
+    // // ✅ 局部删除节点
+    // const handleNodeDelete = useCallback((id: string) => {
+    //     setGraphData(prev => {
+    //         if (!prev) return prev;
+
+    //         return {
+    //             nodes: prev.nodes.filter(node => node.id !== id),
+    //             links: prev.links.filter(link =>
+    //                 link.source !== id && link.target !== id
+    //             )
+    //         };
+    //     });
+
+    //     setSelectedNode(null);
+    // }, []);
 
     const allTags = useMemo(() => {
         if (!graphData?.nodes) return new Set();
@@ -154,7 +252,7 @@ export default function StarmapPage() {
                         <p className="text-gray-300 text-lg">✨ 暂无灵感数据</p>
                         <p className="text-sm text-gray-400">先去主界面记录一些灵感吧！</p>
                         <button
-                            onClick={() => router.push('/dashboard')}
+                            onClick={() => router.push('/app')}
                             className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                         >
                             返回主页
@@ -214,8 +312,8 @@ export default function StarmapPage() {
                     node={selectedNode.node}
                     position={selectedNode.position}
                     onClose={() => setSelectedNode(null)}
-                    onUpdate={handleUpdate}
-                    onDelete={handleDelete}
+                    onUpdate={handleNodeUpdate}  // ✅ 改为 handleNodeUpdate
+                    onDelete={handleNodeDelete}  // ✅ 改为 handleNodeDelete
                 />
             )}
         </MainLayout>

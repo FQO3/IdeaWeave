@@ -90,18 +90,18 @@ interface GraphData {
 // ✅ 修改：扩展 Store 状态
 interface IdeasState {
     ideas: Idea[];
-    graphData: GraphData | null;  // ✅ 新增图数据
+    graphData: GraphData | null;
     setIdeas: (ideas: Idea[]) => void;
-    setGraphData: (data: GraphData) => void;  // ✅ 新增设置方法
+    setGraphData: (data: GraphData | null) => void;  // ✅ 允许传入 null
     addIdea: (idea: Idea) => void;
     removeIdea: (id: string) => void;
 }
 
 export const useIdeasStore = create<IdeasState>((set) => ({
     ideas: [],
-    graphData: null,  // ✅ 初始化
+    graphData: null,
     setIdeas: (ideas) => set({ ideas }),
-    setGraphData: (data) => set({ graphData: data }),  // ✅ 新增
+    setGraphData: (data) => set({ graphData: data }),  // ✅ 保持不变，这个是对的
     addIdea: (idea) => set((state) => ({ ideas: [idea, ...state.ideas] })),
     removeIdea: (id) => set((state) => ({
         ideas: state.ideas.filter(i => i.id !== id)

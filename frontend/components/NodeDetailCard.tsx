@@ -9,7 +9,7 @@ interface NodeDetailCardProps {
     node: GraphNode;
     position: { x: number; y: number };
     onClose: () => void;
-    onUpdate?: () => void;
+    onUpdate?: (updatedNode: Partial<GraphNode>) => void;  // ✅ 修改类型
     onDelete?: (id: string) => void;
 }
 
@@ -136,7 +136,17 @@ export default function NodeDetailCard({
             });
             setTitle(newTitle);
             setEditingTitle(false);
-            onUpdate?.();
+
+            // ✅ 传递更新（只更新必要字段）
+            onUpdate?.({
+                id: node.id,
+                label: newTitle,
+                content: node.content,  // ✅ 保持原有内容
+                type: node.type,
+                createdAt: node.createdAt,
+                tags: node.tags,
+                category: node.category,
+            });
         } catch (error) {
             console.error("更新标题失败:", error);
             alert("更新失败");
@@ -152,7 +162,17 @@ export default function NodeDetailCard({
             await api.patch(`/ideas/${node.id}`, { category: newCategory });
             setCategory(newCategory);
             setEditingCategory(false);
-            onUpdate?.();
+
+            // ✅ 传递完整更新
+            onUpdate?.({
+                id: node.id,
+                label: node.label,
+                content: node.content,
+                type: node.type,
+                createdAt: node.createdAt,
+                tags: node.tags,
+                category: newCategory,  // ✅ 只更新分类
+            });
         } catch (error) {
             console.error("更新分类失败:", error);
             alert("更新失败");
@@ -169,7 +189,17 @@ export default function NodeDetailCard({
             await api.patch(`/ideas/${node.id}`, { content: newContent });
             setContent(newContent);
             setEditingContent(false);
-            onUpdate?.();
+
+            // ✅ 传递完整更新
+            onUpdate?.({
+                id: node.id,
+                label: node.label,
+                content: newContent,  // ✅ 只更新内容
+                type: node.type,
+                createdAt: node.createdAt,
+                tags: node.tags,
+                category: node.category,
+            });
         } catch (error) {
             console.error("更新内容失败:", error);
             alert("更新失败");

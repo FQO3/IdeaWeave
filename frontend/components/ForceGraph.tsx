@@ -94,29 +94,37 @@ export default function ForceGraph({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // 初始化节点位置
+  // ✅ 初始化节点位置（保持现有位置）
   useEffect(() => {
-    console.log('🎯 ForceGraph 收到数据:', {
-      节点数: data.nodes.length,
-      连线数: data.links.length,
-      示例节点: data.nodes[0],
-      示例连线: data.links[0]
+    if (!data?.nodes) return;
+
+    // ✅ 合并新数据和现有位置
+    setNodes(prev => {
+      const nodeMap = new Map(prev.map(n => [n.id, n]));
+
+      return data.nodes.map(node => {
+        const existing = nodeMap.get(node.id);
+        return existing ? {
+          ...node,  // ✅ 使用新数据（label、content等）
+          x: existing.x,      // ✅ 保持位置
+          y: existing.y,
+          vx: existing.vx,    // ✅ 保持速度
+          vy: existing.vy,
+          mass: getNodeMass((node as any).category),
+        } : {
+          ...node,
+          x: dimensions.width / 2 + (Math.random() - 0.5) * 200,
+          y: dimensions.height / 2 + (Math.random() - 0.5) * 200,
+          vx: 0,
+          vy: 0,
+          mass: getNodeMass((node as any).category),
+        };
+      });
     });
 
-    const { width, height } = dimensions;
-    const initializedNodes = data.nodes.map((node) => ({
-      ...node,
-      x: node.x ?? width / 2 + (Math.random() - 0.5) * 200,
-      y: node.y ?? height / 2 + (Math.random() - 0.5) * 200,
-      vx: 0,
-      vy: 0,
-      mass: getNodeMass((node as any).category),
-    }));
-    setNodes(initializedNodes);
     setLinks(data.links as ExtendedGraphLink[]);
   }, [data, dimensions]);
 
-  // ✅ 点击连线，将其移动到屏幕中央
   // ✅ 点击连线，将其移动到屏幕中央（考虑屏幕边界）
   const centerLink = useCallback((link: ExtendedGraphLink, sourceNode: ExtendedGraphNode, targetNode: ExtendedGraphNode) => {
     const { width, height } = dimensions;
@@ -786,7 +794,7 @@ export default function ForceGraph({
       {selectedLink && (
         <button
           onClick={clearSelection}
-          className="fixed top-20 left-6 z-[9999] p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/20 transition-all duration-300 hover:scale-110 group"
+          className="fixed top-20 right-6 z-[9999] p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/20 transition-all duration-300 hover:scale-110 group"
           aria-label="关闭详情"
         >
           <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
