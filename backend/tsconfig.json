@@ -15,7 +15,7 @@
     },
     "include": [
         "src", "drizzle.config.ts"
-    ],
+, "../frontend/global.d.ts"    ],
     "exclude": [
         "node_modules"
     ]

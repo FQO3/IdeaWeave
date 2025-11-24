@@ -12,10 +12,10 @@ const router = Router();
 router.post('/register', async (req, res) => {
     try {
         const { email, password, name } = req.body;
-        if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+        if (!email || !password) return res.status(400).json({ error: '需要提供电子邮箱和密码' });
 
         const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
-        if (existing.length > 0) return res.status(400).json({ error: 'User already exists' });
+        if (existing.length > 0) return res.status(400).json({ error: '当前用户已存在' });
 
         const hashed = await bcrypt.hash(password, 10);
         const id = uuidv4();
@@ -27,8 +27,8 @@ router.post('/register', async (req, res) => {
         const token = jwt.sign({ userId: created.id, email: created.email }, process.env.JWT_SECRET!, { expiresIn: '7d' });
         res.json({ token, user: created });
     } catch (e) {
-        console.error('Register error:', e);
-        res.status(500).json({ error: 'Failed to register' });
+        console.error('注册失败:', e);
+        res.status(500).json({ error: '注册失败e:500' });
     }
 });
 
@@ -37,16 +37,16 @@ router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+        if (!user) return res.status(401).json({ error: '用户名密码错误' });
 
         const ok = await bcrypt.compare(password, user.password);
-        if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+        if (!ok) return res.status(401).json({ error: '用户名密码错误' });
 
         const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET!, { expiresIn: '7d' });
         res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
     } catch (e) {
-        console.error('Login error:', e);
-        res.status(500).json({ error: 'Failed to login' });
+        console.error('登录失败:', e);
+        res.status(500).json({ error: '登陆失败e:500' });
     }
 });
 

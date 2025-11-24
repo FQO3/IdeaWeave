@@ -12,17 +12,24 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
 
-  useEffect(() => {
-    // 从 localStorage 读取主题设置
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
+  // 使用 useLayoutEffect 来避免闪烁
+  type Theme = 'light' | 'dark';
+
+  const [theme, setTheme] = useState<Theme>(() => {
+    // 这里要判断环境，防止 SSR 或测试环境没有 window/localStorage 时报错
+    if (typeof window === 'undefined') {
+      return 'light'; // SSR 或非浏览器环境的兜底
     }
-  }, []);
+
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      return savedTheme;
+    }
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return prefersDark ? 'dark' : 'light';
+  });
 
   useEffect(() => {
     // 应用主题到 html 元素

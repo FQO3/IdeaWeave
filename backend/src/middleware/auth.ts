@@ -11,7 +11,7 @@ export const authMiddleware = (
         const token = req.headers.authorization?.replace('Bearer ', '');
 
         if (!token) {
-            return res.status(401).json({ error: 'Authentication required' });
+            return res.status(401).json({ error: '您尚未登陆' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
