@@ -6,8 +6,8 @@ import api from '@/lib/api';
 import { useIdeasStore } from '@/lib/store';
 
 interface IdeaListProps {
-  onEditIdea: (idea: any) => void;
-  refreshTrigger?: number;
+    onEditIdea: (idea: any) => void;
+    refreshTrigger?: number;
 }
 
 export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) {
@@ -90,9 +90,9 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
     // 更新标题
     const handleUpdateTitle = async (ideaId: string, newTitle: string) => {
         try {
-            await api.patch(`/ideas/${ideaId}`, { 
+            await api.patch(`/ideas/${ideaId}`, {
                 title: newTitle,
-                summary: newTitle 
+                summary: newTitle
             });
             loadIdeas(); // 重新加载数据
         } catch (error) {
@@ -103,14 +103,16 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
     // 更新分类
     const handleUpdateCategory = async (ideaId: string, newCategory: string) => {
         try {
-            await api.patch(`/ideas/${ideaId}`, { 
-                category: newCategory 
+            await api.patch(`/ideas/${ideaId}`, {
+                category: newCategory
             });
             loadIdeas(); // 重新加载数据
         } catch (error) {
             console.error('Failed to update category:', error);
         }
     };
+
+
 
     if (ideas.length === 0) {
         return (
@@ -158,7 +160,7 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
                                                     />
                                                 </div>
                                             ) : (
-                                                <span 
+                                                <span
                                                     className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-800 transition-all duration-200 overflow-hidden group"
                                                     onClick={() => setEditingTitle(idea.id)}
                                                 >
@@ -180,16 +182,16 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
                                                     onBlur={() => setEditingCategory(null)}
                                                     className="text-xs font-medium px-2 py-1 rounded-full border-2 border-blue-500 outline-none cursor-pointer"
                                                     style={{
-                                                        backgroundColor: idea.category === 'TODO' 
-                                                            ? 'rgb(254 226 226)' 
+                                                        backgroundColor: idea.category === 'TODO'
+                                                            ? 'rgb(254 226 226)'
                                                             : idea.category === 'PLAN'
-                                                            ? 'rgb(220 252 231)'
-                                                            : 'rgb(243 232 255)',
-                                                        color: idea.category === 'TODO' 
-                                                            ? 'rgb(153 27 27)' 
+                                                                ? 'rgb(220 252 231)'
+                                                                : 'rgb(243 232 255)',
+                                                        color: idea.category === 'TODO'
+                                                            ? 'rgb(153 27 27)'
                                                             : idea.category === 'PLAN'
-                                                            ? 'rgb(21 128 61)'
-                                                            : 'rgb(126 34 206)'
+                                                                ? 'rgb(21 128 61)'
+                                                                : 'rgb(126 34 206)'
                                                     }}
                                                 >
                                                     <option value="TODO" style={{ backgroundColor: 'rgb(254 226 226)', color: 'rgb(153 27 27)' }}>待办</option>
@@ -197,18 +199,17 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
                                                     <option value="INSPIRATION" style={{ backgroundColor: 'rgb(243 232 255)', color: 'rgb(126 34 206)' }}>灵感</option>
                                                 </select>
                                             ) : (
-                                                <span 
-                                                    className={`text-xs font-medium px-2 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
-                                                        idea.category === 'TODO' 
+                                                <span
+                                                    className={`text-xs font-medium px-2 py-1 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${idea.category === 'TODO'
                                                             ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
                                                             : idea.category === 'PLAN'
-                                                            ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                                                            : 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                                                    }`}
+                                                                ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                                                                : 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                                                        }`}
                                                     onClick={() => setEditingCategory(idea.id)}
                                                 >
-                                                    {idea.category === 'TODO' ? '待办' : 
-                                                     idea.category === 'PLAN' ? '规划' : '灵感'}
+                                                    {idea.category === 'TODO' ? '待办' :
+                                                        idea.category === 'PLAN' ? '规划' : '灵感'}
                                                 </span>
                                             )
                                         )}
@@ -225,7 +226,7 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
                                         {idea.tags.map((tag) => (
                                             <span
                                                 key={tag.id}
-                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-100 dark:bg-blue-600 text-blue-800 dark:text-blue-100"
                                             >
                                                 <Tag className="w-3 h-3" />
                                                 {tag.name}
@@ -255,7 +256,7 @@ export default function IdeaList({ onEditIdea, refreshTrigger }: IdeaListProps) 
                             >
                                 <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                             </button>
-                            
+
                             {menuOpenId === idea.id && (
                                 <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10 animate-in fade-in-0 zoom-in-95">
                                     <button

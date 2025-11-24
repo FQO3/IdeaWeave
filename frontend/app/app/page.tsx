@@ -8,6 +8,7 @@ import IdeaList from '@/components/IdeaList';
 import LinkCreator from '@/components/LinkCreator';
 import { useTheme } from '@/contexts/ThemeContext';
 import UserProfileMenu from '@/components/UserProfileMenu';
+import EditIdeaModal from '@/components/EditIdeaModal';
 import api from '@/lib/api';
 
 export default function Dashboard() {
@@ -15,9 +16,11 @@ export default function Dashboard() {
     const { theme, toggleTheme } = useTheme();
     const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [inputMode, setInputMode] = useState(false);
+        const [inputMode, setInputMode] = useState(false);
     const [ideaContent, setIdeaContent] = useState('');
     const [loading, setLoading] = useState(false);
+    const [editingIdea, setEditingIdea] = useState<any>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const addIdea = useIdeasStore((state) => state.addIdea);
 
     useEffect(() => {
@@ -42,7 +45,7 @@ export default function Dashboard() {
         setIdeaContent('');
     };
 
-    const handleSubmitIdea = async (e: React.FormEvent) => {
+        const handleSubmitIdea = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!ideaContent.trim()) return;
 
@@ -52,11 +55,69 @@ export default function Dashboard() {
             addIdea(data);
             setIdeaContent('');
             setInputMode(false);
+            setRefreshTrigger(prev => prev + 1);
         } catch (error) {
             console.error('创建失败:', error);
             alert('创建失败，请重试');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 关闭编辑弹窗
+    const closeEditModal = () => {
+        setEditingIdea(null);
+        // 触发刷新
+        setRefreshTrigger(prev => prev + 1);
+    };
+
+        // 更新笔记内容
+    const handleUpdateContent = async (content: string, tags: string[]) => {
+        if (!editingIdea) return;
+        
+        try {
+            // 更新内容
+            await api.patch(`/ideas/${editingIdea.id}`, { content });
+            
+            // 更新标签
+            await updateTags(editingIdea.id, tags);
+            
+            closeEditModal();
+        } catch (error) {
+            console.error('Failed to update idea:', error);
+        }
+    };
+
+    // 更新标签
+    const updateTags = async (ideaId: string, newTags: string[]) => {
+        try {
+            // 获取当前标签
+            const currentTags = editingIdea.tags || [];
+            
+            // 删除不存在的标签
+            for (const currentTag of currentTags) {
+                if (!newTags.includes(currentTag.name)) {
+                    await api.delete(`/tags/${ideaId}/tags/${currentTag.id}`);
+                }
+            }
+            
+            // 添加新标签
+            for (const tagName of newTags) {
+                const existingTag = currentTags.find((t: any) => t.name === tagName);
+                if (!existingTag) {
+                    // 创建新标签
+                    const tagResponse = await api.post('/tags', { 
+                        name: tagName
+                    });
+                    
+                    // 关联标签到笔记
+                    await api.post(`/tags/${ideaId}/tags`, { 
+                        tagId: tagResponse.data.id 
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update tags:', error);
         }
     };
 
@@ -278,7 +339,7 @@ export default function Dashboard() {
                                 <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
                                     💡 我的灵感库
                                 </h2>
-                                <IdeaList />
+                                <IdeaList onEditIdea={setEditingIdea} refreshTrigger={refreshTrigger} />
                                 <div className="mt-8">
                                     <LinkCreator />
                                 </div>
@@ -286,7 +347,31 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </main>
-            </div>
+                        </div>
+
+            {/* 编辑笔记弹窗 - 在app级别 */}
+            {editingIdea && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">编辑笔记</h2>
+                            <button
+                                onClick={closeEditModal}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="flex-1 p-6 overflow-auto">
+                            <EditIdeaModal 
+                                idea={editingIdea} 
+                                onSave={handleUpdateContent}
+                                onCancel={closeEditModal}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

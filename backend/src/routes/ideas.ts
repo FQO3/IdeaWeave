@@ -130,17 +130,31 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// 更新灵感点（仅内容）
+// 更新灵感点（内容、标题、摘要、分类）
 router.patch('/:id', async (req, res) => {
     try {
         const userId = (req as any).user.userId;
         const { id } = req.params;
-        const { content } = req.body;
+        const { content, title, summary, category } = req.body;
 
         const [exists] = await db.select({ id: ideas.id }).from(ideas).where(and(eq(ideas.id, id), eq(ideas.userId, userId))).limit(1);
         if (!exists) return res.status(404).json({ error: 'Idea not found' });
 
-        const [updated] = await db.update(ideas).set({ content })
+        // 构建更新对象
+        const updateData: any = {};
+        if (content !== undefined) updateData.content = content;
+        if (title !== undefined) updateData.title = title;
+        if (summary !== undefined) updateData.summary = summary;
+        if (category !== undefined) updateData.category = category;
+        
+        // 如果没有要更新的字段，返回错误
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        updateData.updatedAt = new Date();
+
+        const [updated] = await db.update(ideas).set(updateData)
             .where(eq(ideas.id, id)).returning();
 
         res.json(updated);

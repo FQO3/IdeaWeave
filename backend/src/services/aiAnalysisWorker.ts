@@ -172,7 +172,7 @@ export class AIAnalysisWorker {
               const [newTag] = await db.insert(tags).values({
                 id: newTagId,
                 name: tagData.name,
-                color: tagData.color
+                color: '#3b82f6'
               }).returning();
               tagId = newTag.id;
             }

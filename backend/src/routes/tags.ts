@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
 // 创建新标签
 router.post('/', async (req, res) => {
     try {
-        const { name, color = '#3b82f6' } = req.body;
+        const { name } = req.body;
         const userId = (req as any).user.userId;
         
         if (!name) return res.status(400).json({ error: 'Tag name is required' });
@@ -56,7 +56,7 @@ router.post('/', async (req, res) => {
             [tag] = await db.insert(tags).values({
                 id,
                 name,
-                color
+                color: '#3b82f6'
             }).returning();
         }
 

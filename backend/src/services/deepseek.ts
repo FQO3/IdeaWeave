@@ -5,7 +5,6 @@ interface DeepSeekAnalysis {
   category: 'todo' | 'plan' | 'inspiration';
   tags?: Array<{
     name: string;
-    color: string;
   }>;
   relatedIdeas?: Array<{
     ideaId: string;
@@ -115,7 +114,6 @@ ${existingIdeasText}
    - inspiration: 规划下的灵感、想法
 3. 标签生成（生成2-4个相关标签）：
    - 每个标签应该是简短的关键词
-   - 为每个标签推荐一个合适的颜色（十六进制颜色码）
 4. 关联分析（仅当分类不是todo时需要）：
    - 找出与新笔记最相关的现有笔记（最多3个）
    - 说明关联原因
@@ -129,8 +127,7 @@ ${existingIdeasText}
   "category": "todo|plan|inspiration",
   "tags": [
     {
-      "name": "标签名",
-      "color": "#颜色码"
+      "name": "标签名"
     }
   ],
   "relatedIdeas": [
@@ -190,8 +187,8 @@ ${existingIdeasText}
 
     // 生成简单标签
     const defaultTags = [
-      { name: '笔记', color: '#3b82f6' },
-      { name: '灵感', color: '#8b5cf6' }
+      { name: '笔记' },
+      { name: '灵感' }
     ];
 
     return {
