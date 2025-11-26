@@ -121,6 +121,71 @@ export default function StarMapPage() {
         setSelectedNode(null);
     }, [graphData, setGraphData]);
 
+    // ✅ 局部更新连接数据
+    const handleLinkUpdate = useCallback((linkId: string, updatedData: Partial<{ reason: string; strength: number }>) => {
+        console.log('🔄 更新连接:', linkId, updatedData);
+
+        if (!graphData) {
+            console.warn('⚠️ graphData 为空，无法更新');
+            return;
+        }
+
+        // ✅ 创建新的数据对象
+        const newGraphData: GraphData = {
+            nodes: graphData.nodes,
+            links: graphData.links.map(link =>
+                link.id === linkId
+                    ? { ...link, ...updatedData }
+                    : link
+            )
+        };
+
+        console.log('🔄 更新后的连接数据:', newGraphData.links.find(l => l.id === linkId));
+
+        // ✅ 更新 store 中的数据
+        setGraphData(newGraphData);
+    }, [graphData, setGraphData]);
+
+    // ✅ 删除连线（放在 handleLinkUpdate 后面）
+    const handleLinkDelete = useCallback(async (linkId: string) => {
+        if (!linkId) {
+            console.error('❌ linkId 为空');
+            return;
+        }
+
+        // 确认删除
+        const confirmDelete = window.confirm('确定要删除这条连接吗？此操作无法撤销。');
+        if (!confirmDelete) {
+            return;
+        }
+
+        try {
+            console.log('🗑️ 删除连线:', linkId);
+
+            // 调用 API 删除
+            await api.delete(`/ideas/links/${linkId}`);
+
+            console.log('✅ 连线删除成功');
+
+            // 更新 graphData
+            if (graphData) {
+                const newGraphData: GraphData = {
+                    nodes: graphData.nodes,
+                    links: graphData.links.filter(link => link.id !== linkId)
+                };
+
+                console.log('🔄 更新后的 graphData:', newGraphData);
+                setGraphData(newGraphData);
+            }
+
+            // 可选：添加成功提示
+            // toast.success('连接已删除');
+        } catch (error: any) {
+            console.error('❌ 删除连线失败:', error);
+            alert(`删除失败: ${error.response?.data?.error || error.message}`);
+        }
+    }, [graphData, setGraphData]);
+
     // ✅ 处理图数据
     const processedGraphData = useMemo(() => {
         console.log('📊 processedGraphData 计算, graphData:', graphData);
@@ -141,6 +206,7 @@ export default function StarMapPage() {
         }));
 
         const links = graphData.links.map((link: any) => ({
+            id: link.id,  // ✅ 添加这行
             source: String(link.source),
             target: String(link.target),
             strength: link.strength || 0.5,
@@ -292,6 +358,8 @@ export default function StarMapPage() {
                 <ForceGraph
                     data={processedGraphData}
                     onNodeClick={handleNodeClick}
+                    onLinkUpdate={handleLinkUpdate}
+                    onLinkDelete={handleLinkDelete}
                     searchQuery={searchQuery}
                 />
             </div>

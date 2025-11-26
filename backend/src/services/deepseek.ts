@@ -47,7 +47,7 @@ export class DeepSeekService {
 
     try {
       const prompt = this.buildAnalysisPrompt(newIdeaContent, existingIdeas);
-      
+
       const response = await axios.post(
         `${this.baseURL}/chat/completions`,
         {
@@ -78,12 +78,12 @@ export class DeepSeekService {
       return this.parseAnalysisResponse(analysisText);
     } catch (error: any) {
       console.error('DeepSeek API error:', error.message);
-      
+
       // 如果是认证错误，记录更详细的信息
       if (error.response?.status === 401) {
         console.error('DeepSeek API authentication failed. Please check your API key.');
       }
-      
+
       // 抛出错误让调用方处理
       throw new Error(`DeepSeek API调用失败: ${error.message}`);
     }
@@ -114,7 +114,7 @@ ${existingIdeasText}
    - inspiration: 规划下的灵感、想法
 3. 标签生成（生成2-4个相关标签）：
    - 每个标签应该是简短的关键词
-4. 关联分析（仅当分类不是todo时需要）：
+4. 关联分析：
    - 找出与新笔记最相关的现有笔记（最多3个）
    - 说明关联原因
    - 给出关联强度（0.1-1.0）
@@ -147,17 +147,12 @@ ${existingIdeasText}
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        
+
         // 验证分类
         if (!['todo', 'plan', 'inspiration'].includes(parsed.category)) {
           throw new Error('Invalid category');
         }
-
-        // 如果是todo类别，确保没有关联
-        if (parsed.category === 'todo' && parsed.relatedIdeas) {
-          parsed.relatedIdeas = [];
-        }
-
+        console.log('Successfully parsed DeepSeek analysis:', parsed);
         return parsed;
       }
       throw new Error('No JSON found in response');
@@ -172,13 +167,13 @@ ${existingIdeasText}
     console.log('Warn!! Using default analysis for content:', content);
     const lowerContent = content.toLowerCase();
     let category: 'todo' | 'plan' | 'inspiration' = 'inspiration';
-    
-    if (lowerContent.includes('todo') || lowerContent.includes('待办') || 
-        lowerContent.includes('任务') || lowerContent.includes('需要') ||
-        lowerContent.includes('应该') || lowerContent.includes('必须')) {
+
+    if (lowerContent.includes('todo') || lowerContent.includes('待办') ||
+      lowerContent.includes('任务') || lowerContent.includes('需要') ||
+      lowerContent.includes('应该') || lowerContent.includes('必须')) {
       category = 'todo';
     } else if (lowerContent.includes('计划') || lowerContent.includes('规划') ||
-               lowerContent.includes('项目') || lowerContent.includes('目标')) {
+      lowerContent.includes('项目') || lowerContent.includes('目标')) {
       category = 'plan';
     }
 

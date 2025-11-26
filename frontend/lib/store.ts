@@ -77,9 +77,11 @@ interface GraphNode {
 }
 
 interface GraphLink {
+    id?: string;  // ✅ 添加链接 ID
     source: string;
     target: string;
     strength: number;
+    reason?: string;  // ✅ 添加理由字段
 }
 
 interface GraphData {

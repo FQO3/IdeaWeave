@@ -17,7 +17,7 @@ router.post('/', async (req, res) => {
         if (!content) return res.status(400).json({ error: 'Content is required' });
 
         const id = uuidv4();
-        
+
         // 立即创建笔记，不等待AI分析
         const [created] = await db.insert(ideas).values({
             id,
@@ -41,19 +41,19 @@ router.post('/', async (req, res) => {
         });
 
         // 立即返回创建结果，不等待AI分析
-        res.json({ 
-            ...created, 
-            tags: [], 
-            linksTo: [], 
+        res.json({
+            ...created,
+            tags: [],
+            linksTo: [],
             linksFrom: [],
             aiAnalysis: {
                 status: 'pending',
                 message: 'AI分析正在后台进行，稍后刷新查看结果'
             }
         });
-        } catch (e) {
+    } catch (e) {
         console.error('Create idea error:', e);
-        console.error('Error details:', JSON.stringify(e , null, 2));
+        console.error('Error details:', JSON.stringify(e, null, 2));
         res.status(500).json({ error: 'Failed to create idea', details: e instanceof Error ? e.message : 'Unknown error' });
     }
 });
@@ -146,7 +146,7 @@ router.patch('/:id', async (req, res) => {
         if (title !== undefined) updateData.title = title;
         if (summary !== undefined) updateData.summary = summary;
         if (category !== undefined) updateData.category = category;
-        
+
         // 如果没有要更新的字段，返回错误
         if (Object.keys(updateData).length === 0) {
             return res.status(400).json({ error: 'No fields to update' });
@@ -161,6 +161,65 @@ router.patch('/:id', async (req, res) => {
     } catch (e) {
         console.error('Update idea error:', e);
         res.status(500).json({ error: 'Failed to update idea' });
+    }
+});
+
+// ✅ 更新链接理由（在其他路由之后添加）
+router.patch('/links/:linkId', async (req, res) => {
+    try {
+        const userId = (req as any).user.userId;
+        const { linkId } = req.params;
+        const { reason, strength } = req.body;
+
+        // 查询链接，确保两端的 idea 都属于当前用户
+        const [link] = await db.select({
+            id: links.id,
+            fromIdeaId: links.fromIdeaId,
+            toIdeaId: links.toIdeaId
+        })
+            .from(links)
+            .where(eq(links.id, linkId))
+            .limit(1);
+
+        if (!link) {
+            return res.status(404).json({ error: 'Link not found' });
+        }
+
+        // 验证两端节点都属于当前用户
+        const [fromIdea, toIdea] = await Promise.all([
+            db.select({ id: ideas.id })
+                .from(ideas)
+                .where(and(eq(ideas.id, link.fromIdeaId), eq(ideas.userId, userId)))
+                .limit(1),
+            db.select({ id: ideas.id })
+                .from(ideas)
+                .where(and(eq(ideas.id, link.toIdeaId), eq(ideas.userId, userId)))
+                .limit(1)
+        ]);
+
+        if (!fromIdea.length || !toIdea.length) {
+            return res.status(403).json({ error: 'Permission denied' });
+        }
+
+        // 构建更新数据
+        const updateData: any = {};
+        if (reason !== undefined) updateData.reason = reason;
+        if (strength !== undefined) updateData.strength = strength;
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        // 更新链接
+        const [updated] = await db.update(links)
+            .set(updateData)
+            .where(eq(links.id, linkId))
+            .returning();
+
+        res.json(updated);
+    } catch (e) {
+        console.error('Update link error:', e);
+        res.status(500).json({ error: 'Failed to update link' });
     }
 });
 
@@ -211,11 +270,57 @@ router.post('/:id/links', async (req, res) => {
     }
 });
 
+// ✅ 删除链接
+router.delete('/links/:linkId', async (req, res) => {
+    try {
+        const userId = (req as any).user.userId;
+        const { linkId } = req.params;
+
+        // 查询链接，确保两端的 idea 都属于当前用户
+        const [link] = await db.select({
+            id: links.id,
+            fromIdeaId: links.fromIdeaId,
+            toIdeaId: links.toIdeaId
+        })
+            .from(links)
+            .where(eq(links.id, linkId))
+            .limit(1);
+
+        if (!link) {
+            return res.status(404).json({ error: 'Link not found' });
+        }
+
+        // 验证两端节点都属于当前用户
+        const [fromIdea, toIdea] = await Promise.all([
+            db.select({ id: ideas.id })
+                .from(ideas)
+                .where(and(eq(ideas.id, link.fromIdeaId), eq(ideas.userId, userId)))
+                .limit(1),
+            db.select({ id: ideas.id })
+                .from(ideas)
+                .where(and(eq(ideas.id, link.toIdeaId), eq(ideas.userId, userId)))
+                .limit(1)
+        ]);
+
+        if (!fromIdea.length || !toIdea.length) {
+            return res.status(403).json({ error: 'Permission denied' });
+        }
+
+        // 删除链接
+        await db.delete(links).where(eq(links.id, linkId));
+
+        res.json({ success: true, message: 'Link deleted successfully' });
+    } catch (e) {
+        console.error('Delete link error:', e);
+        res.status(500).json({ error: 'Failed to delete link' });
+    }
+});
+
 // 获取图谱数据
 router.get('/graph/data', async (req, res) => {
     try {
         const userId = (req as any).user.userId;
-        
+
         // ✅ 在 select 中添加 category 字段
         const nodes = await db.select({
             id: ideas.id,
@@ -229,6 +334,7 @@ router.get('/graph/data', async (req, res) => {
         const ideaIds = nodes.map(n => n.id);
         const edges = ideaIds.length
             ? await db.select({
+                id: links.id,
                 source: links.fromIdeaId,
                 target: links.toIdeaId,
                 strength: links.strength,
@@ -269,9 +375,9 @@ router.get('/:id/ai-status', async (req, res) => {
             title: ideas.title,
             category: ideas.category
         })
-        .from(ideas)
-        .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
-        .limit(1);
+            .from(ideas)
+            .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
+            .limit(1);
 
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
 
@@ -302,9 +408,9 @@ router.post('/:id/analyze', async (req, res) => {
             content: ideas.content,
             aiAnalysisStatus: ideas.aiAnalysisStatus
         })
-        .from(ideas)
-        .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
-        .limit(1);
+            .from(ideas)
+            .where(and(eq(ideas.id, id), eq(ideas.userId, userId)))
+            .limit(1);
 
         if (!idea) return res.status(404).json({ error: 'Idea not found' });
 
@@ -325,9 +431,9 @@ router.post('/:id/analyze', async (req, res) => {
             userId
         });
 
-        res.json({ 
-            success: true, 
-            message: 'AI分析已重新加入队列' 
+        res.json({
+            success: true,
+            message: 'AI分析已重新加入队列'
         });
     } catch (e) {
         console.error('Manual analyze error:', e);

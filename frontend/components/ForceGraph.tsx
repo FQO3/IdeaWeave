@@ -3,10 +3,13 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import type { GraphNode, GraphLink, GraphData } from "../lib/store";
 import { X } from "lucide-react";
+import EditReasonModal from "./EditReasonModal";
 
 export interface ForceGraphProps {
   data: GraphData;
   onNodeClick?: (node: GraphNode, event: { clientX: number; clientY: number }) => void;
+  onLinkUpdate?: (linkId: string, updatedData: Partial<{ reason: string; strength: number }>) => void;  // ✅ 添加
+  onLinkDelete?: (linkId: string) => void;  // ✅ 添加删除回调
   searchQuery?: string;
 }
 
@@ -22,12 +25,15 @@ interface ExtendedGraphNode extends GraphNode {
 
 // ✅ 扩展 GraphLink 添加连接理由
 interface ExtendedGraphLink extends GraphLink {
+  id?: string;  // ✅ 确保有 id
   reason?: string;
 }
 
 export default function ForceGraph({
   data,
   onNodeClick,
+  onLinkUpdate,
+  onLinkDelete,  // ✅ 添加
   searchQuery = "",
 }: ForceGraphProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -35,12 +41,22 @@ export default function ForceGraph({
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [nodes, setNodes] = useState<ExtendedGraphNode[]>([]);
   const [links, setLinks] = useState<ExtendedGraphLink[]>([]);
+  // 在组件顶部添加编辑状态
+  const [editingReason, setEditingReason] = useState(false);
+  const [editedReason, setEditedReason] = useState("");
+  const reasonInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const exitButtonBounds = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const editButtonBounds = useRef({ x: 0, y: 0, width: 0, height: 0 });  // ✅ 添加
+  const deleteButtonBounds = useRef({ x: 0, y: 0, width: 0, height: 0 });  // ✅ 添加
+  const lastMousePosition = useRef({ x: 0, y: 0 });
 
   // ✅ 选中的连线（用于高亮和显示理由）
+  // ✅ 修改 selectedLink 类型，包含 linkId
   const [selectedLink, setSelectedLink] = useState<{
     link: ExtendedGraphLink;
     sourceId: string;
     targetId: string;
+    linkId?: string;  // ✅ 添加 linkId
   } | null>(null);
 
   // ✅ 动画目标位置
@@ -94,21 +110,20 @@ export default function ForceGraph({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // ✅ 初始化节点位置（保持现有位置）
+  // 初始化节点位置
   useEffect(() => {
     if (!data?.nodes) return;
 
-    // ✅ 合并新数据和现有位置
     setNodes(prev => {
       const nodeMap = new Map(prev.map(n => [n.id, n]));
 
       return data.nodes.map(node => {
         const existing = nodeMap.get(node.id);
         return existing ? {
-          ...node,  // ✅ 使用新数据（label、content等）
-          x: existing.x,      // ✅ 保持位置
+          ...node,
+          x: existing.x,
           y: existing.y,
-          vx: existing.vx,    // ✅ 保持速度
+          vx: existing.vx,
           vy: existing.vy,
           mass: getNodeMass((node as any).category),
         } : {
@@ -122,6 +137,8 @@ export default function ForceGraph({
       });
     });
 
+    // ✅ 每次 data.links 更新时同步
+    console.log('🔗 更新连线数据:', data.links);
     setLinks(data.links as ExtendedGraphLink[]);
   }, [data, dimensions]);
 
@@ -165,14 +182,20 @@ export default function ForceGraph({
     setSelectedLink({
       link,
       sourceId: sourceNode.id,
-      targetId: targetNode.id
+      targetId: targetNode.id,
+      linkId: link.id  // ✅ 保存 linkId
     });
+
+    setEditingReason(false);
+    setEditedReason(link.reason || "");
   }, [dimensions]);
 
   // ✅ 取消选中
   const clearSelection = useCallback(() => {
     setSelectedLink(null);
     targetPositions.current.clear();
+    setEditingReason(false);  // ✅ 清除编辑状态
+    setEditedReason("");
   }, []);
 
   // ✅ 物理模拟（带平滑动画）
@@ -405,7 +428,7 @@ export default function ForceGraph({
 
     ctx.globalAlpha = 1;
 
-    // ✅ 绘制选中连线的理由文本
+    // ✅ 绘制选中连线的理由文本（带编辑和删除功能）
     if (selectedLink) {
       const source = nodes.find(n => n.id === selectedLink.sourceId);
       const target = nodes.find(n => n.id === selectedLink.targetId);
@@ -416,11 +439,16 @@ export default function ForceGraph({
         const centerY = (source.y! + target.y!) / 2;
         const lineWidth = Math.abs(target.x! - source.x!);
 
-        // ✅ 在连线上方显示
+        // 计算位置
+        const nodePadding = 80;
+        const topPadding = 150;
+        const safeLeft = nodePadding;
+        const safeRight = width - nodePadding;
+        const safeTop = topPadding;
+
         const boxWidth = Math.min(lineWidth * 0.8, 450);
         const lineY = centerY - 30;
 
-        // ✅ 先绘制"连接理由"标题，计算其高度
         ctx.font = "bold 16px sans-serif";
         const titleHeight = 30;
 
@@ -446,10 +474,11 @@ export default function ForceGraph({
         }
         if (line) lines.push(line);
 
-        // 计算总高度
         const lineHeight = 26;
         const contentHeight = lines.length * lineHeight;
-        const totalHeight = titleHeight + contentHeight + 20;  // 标题 + 内容 + 内边距
+        const buttonHeight = 35;
+        const buttonGap = 10;  // ✅ 按钮之间的间距
+        const totalHeight = titleHeight + contentHeight + buttonHeight + 40;  // ✅ 调整高度
         const boxY = lineY - totalHeight;
         const boxX = centerX - boxWidth / 2;
 
@@ -467,13 +496,13 @@ export default function ForceGraph({
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // ✅ 绘制"连接理由"标题（在最上方居中）
+        // 绘制标题
         ctx.font = "bold 16px sans-serif";
         ctx.fillStyle = "rgba(139, 92, 246, 1)";
         ctx.textBaseline = "top";
         ctx.fillText("连接理由", centerX, boxY + 10);
 
-        // ✅ 绘制分隔线
+        // 绘制分隔线
         ctx.strokeStyle = "rgba(139, 92, 246, 0.3)";
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -481,13 +510,84 @@ export default function ForceGraph({
         ctx.lineTo(boxX + boxWidth - 20, boxY + titleHeight);
         ctx.stroke();
 
-        // ✅ 绘制理由内容文字（在标题下方）
+        // 绘制理由内容
         ctx.font = "15px sans-serif";
         ctx.fillStyle = "#e5e7eb";
         ctx.textBaseline = "top";
         lines.forEach((line, i) => {
           ctx.fillText(line, centerX, boxY + titleHeight + 10 + i * lineHeight);
         });
+
+        // ✅ 绘制按钮区域（编辑和删除并排）
+        const buttonY = boxY + titleHeight + contentHeight + 20;
+        const buttonWidth = 100;
+        const editButtonX = centerX - buttonWidth - buttonGap / 2;
+        const deleteButtonX = centerX + buttonGap / 2;
+
+        // 检测鼠标悬停
+        const mouseCanvasPos = screenToCanvas(lastMousePosition.current.x, lastMousePosition.current.y);
+
+        const isHoveringEdit =
+          mouseCanvasPos.x >= editButtonX &&
+          mouseCanvasPos.x <= editButtonX + buttonWidth &&
+          mouseCanvasPos.y >= buttonY &&
+          mouseCanvasPos.y <= buttonY + buttonHeight;
+
+        const isHoveringDelete =
+          mouseCanvasPos.x >= deleteButtonX &&
+          mouseCanvasPos.x <= deleteButtonX + buttonWidth &&
+          mouseCanvasPos.y >= buttonY &&
+          mouseCanvasPos.y <= buttonY + buttonHeight;
+
+        // ✅ 绘制编辑按钮
+        ctx.fillStyle = isHoveringEdit ? "rgba(139, 92, 246, 0.9)" : "rgba(139, 92, 246, 0.6)";
+        ctx.beginPath();
+        ctx.roundRect(editButtonX, buttonY, buttonWidth, buttonHeight, 6);
+        ctx.fill();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("✏️ 编辑", editButtonX + buttonWidth / 2, buttonY + buttonHeight / 2);
+
+        // ✅ 绘制删除按钮
+        ctx.fillStyle = isHoveringDelete ? "rgba(239, 68, 68, 0.9)" : "rgba(239, 68, 68, 0.6)";
+        ctx.beginPath();
+        ctx.roundRect(deleteButtonX, buttonY, buttonWidth, buttonHeight, 6);
+        ctx.fill();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🗑️ 删除", deleteButtonX + buttonWidth / 2, buttonY + buttonHeight / 2);
+
+        // ✅ 保存按钮位置供点击检测
+        if (!editButtonBounds.current) {
+          editButtonBounds.current = { x: 0, y: 0, width: 0, height: 0 };
+        }
+        if (!deleteButtonBounds.current) {
+          deleteButtonBounds.current = { x: 0, y: 0, width: 0, height: 0 };
+        }
+
+        editButtonBounds.current = {
+          x: editButtonX,
+          y: buttonY,
+          width: buttonWidth,
+          height: buttonHeight
+        };
+
+        deleteButtonBounds.current = {
+          x: deleteButtonX,
+          y: buttonY,
+          width: buttonWidth,
+          height: buttonHeight
+        };
+
+        if (isHoveringEdit || isHoveringDelete) {
+          document.body.style.cursor = 'pointer';
+        }
       }
     }
 
@@ -613,7 +713,36 @@ export default function ForceGraph({
   // ✅ 鼠标按下（选中状态时禁用画布交互）
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const { x, y } = screenToCanvas(e.clientX, e.clientY);
-
+    // ✅ 检测删除按钮点击
+    if (selectedLink && deleteButtonBounds.current) {
+      const bounds = deleteButtonBounds.current;
+      if (
+        x >= bounds.x &&
+        x <= bounds.x + bounds.width &&
+        y >= bounds.y &&
+        y <= bounds.y + bounds.height
+      ) {
+        // 调用删除回调
+        if (selectedLink.linkId && onLinkDelete) {
+          onLinkDelete(selectedLink.linkId);
+          clearSelection();  // 删除后清除选中状态
+        }
+        return;
+      }
+    }
+    // ✅ 检测编辑按钮点击
+    if (selectedLink && editButtonBounds.current) {
+      const bounds = editButtonBounds.current;
+      if (
+        x >= bounds.x &&
+        x <= bounds.x + bounds.width &&
+        y >= bounds.y &&
+        y <= bounds.y + bounds.height
+      ) {
+        setEditingReason(true);
+        return;
+      }
+    }
     // ✅ 详细模式下的特殊处理
     if (selectedLink) {
       const clickedNode = findNodeAtPosition(x, y);
@@ -656,7 +785,7 @@ export default function ForceGraph({
   // ✅ 鼠标移动（选中状态时禁用）
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const currentDraggedNode = draggedNode.current;
-
+    lastMousePosition.current = { x: e.clientX, y: e.clientY };
     // ✅ 详细模式下只允许拖拽画布
     if (selectedLink) {
       if (isPanning.current) {
@@ -776,7 +905,7 @@ export default function ForceGraph({
           height: "100%",
           background: "linear-gradient(to bottom, #0f172a, #1e293b)",
           cursor: selectedLink
-            ? (isPanning.current ? "grabbing" : "grab")  // ✅ 详细模式下显示可拖拽的指针
+            ? (isPanning.current ? "grabbing" : "grab")
             : draggedNode.current
               ? "grabbing"
               : isPanning.current
@@ -790,7 +919,7 @@ export default function ForceGraph({
         onWheel={handleWheel}
       />
 
-      {/* ✅ 关闭按钮（最上层，使用 fixed 定位） */}
+      {/* ✅ 关闭按钮 */}
       {selectedLink && (
         <button
           onClick={clearSelection}
@@ -799,6 +928,44 @@ export default function ForceGraph({
         >
           <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
         </button>
+      )}
+
+      {/* ✅ 编辑理由弹窗 */}
+      {editingReason && selectedLink && (
+        <EditReasonModal
+          linkId={selectedLink.linkId}
+          initialReason={selectedLink.link.reason || ""}
+          onClose={() => setEditingReason(false)}
+          onSave={(newReason) => {
+            console.log('✅ 保存回调触发:', newReason);
+
+            if (!selectedLink.linkId) {
+              console.error('❌ linkId 为空');
+              return;
+            }
+
+            // ✅ 1. 更新父组件的 graphData
+            onLinkUpdate?.(selectedLink.linkId, { reason: newReason });
+
+            // ✅ 2. 更新本地的 links 数组
+            setLinks(prev => prev.map(link =>
+              link.id === selectedLink.linkId
+                ? { ...link, reason: newReason }
+                : link
+            ));
+
+            // ✅ 3. 更新选中的连接状态
+            setSelectedLink({
+              ...selectedLink,
+              link: {
+                ...selectedLink.link,
+                reason: newReason
+              }
+            });
+
+            setEditingReason(false);
+          }}
+        />
       )}
     </div>
   );

@@ -1,14 +1,34 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import * as schema from './schema';
 
-const DATABASE_URL = "postgresql://neondb_owner:npg_5hLYvVjB7JXZ@ep-misty-breeze-a1h15ywd-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
-console.log('DATABASE_URL =', DATABASE_URL);
+// ✅ 检查环境变量
+if (!process.env.DATABASE_URL) {
+    throw new Error('❌ DATABASE_URL 环境变量未设置！请检查 .env 文件');
+}
 
+console.log('📊 正在连接数据库...');
+
+// ✅ 方案 2：使用独立的连接参数（避免 URL 编码问题）
 export const pool = new Pool({
-    connectionString: DATABASE_URL,
-    // 对于本地开发环境，禁用SSL
-    ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: false,
-    } : false,
+    host: 'localhost',
+    port: 5432,
+    database: 'ideaweave',
+    user: 'postgres',
+    password: 'K7jR#2bTQmcn3qo*EaPM53KBcf%AJ&',  // ✅ 直接使用原始密码
+    ssl: false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
-export const db = drizzle(pool);
+
+// 测试连接
+pool.on('connect', () => {
+    console.log('✅ 数据库连接成功');
+});
+
+pool.on('error', (err) => {
+    console.error('❌ 数据库连接错误:', err);
+});
+
+export const db = drizzle(pool, { schema });

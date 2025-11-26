@@ -31,10 +31,14 @@ export default function HomePage() {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
                     <button
                         onClick={() => router.push('/')}
-                        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                        className="flex items-center gap-2 hover:opacity-80 transition-all duration-300"
                     >
-                        <Lightbulb className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                        <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">灵织 IdeaWeave</h1>
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <Lightbulb className="w-5 h-5 text-white" />
+                        </div>
+                        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            灵织 IdeaWeave
+                        </h1>
                     </button>
                     <button
                         onClick={handleGetStarted}
@@ -109,10 +113,10 @@ export default function HomePage() {
                             <Users className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
                         </div>
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            团队协作
+                            社区共享
                         </h3>
                         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                            与团队成员分享灵感，共同完善创意想法。
+                            与志同道合的创作者分享灵感，激发更多创意火花。
                         </p>
                     </div>
                 </div>

@@ -143,7 +143,7 @@ export default function Dashboard() {
                                         value={ideaContent}
                                         onChange={(e) => setIdeaContent(e.target.value)}
                                         placeholder="这一刻，你在想什么？"
-                                        className="w-full min-h-[200px] p-6 text-lg bg-white/50 dark:bg-gray-700/50 border-2 border-gray-200/50 dark:border-gray-600/50 rounded-xl resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500"
+                                        className="w-full min-h-[200px] p-6 text-lg bg-white/50 dark:bg-gray-700/50 border-2 border-gray-200/50 dark:border-gray-600/50 rounded-xl resize-none focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/20 transition-all duration-300 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100"
                                         autoFocus
                                     />
 
