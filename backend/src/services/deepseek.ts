@@ -40,7 +40,6 @@ export class DeepSeekService {
     userId: string
   ): Promise<DeepSeekAnalysis> {
     if (!this.apiKey) {
-      // 如果没有配置API密钥，返回默认分析
       console.warn('DeepSeek API key not configured, using default analysis');
       return this.getDefaultAnalysis(newIdeaContent);
     }
@@ -79,12 +78,9 @@ export class DeepSeekService {
     } catch (error: any) {
       console.error('DeepSeek API error:', error.message);
 
-      // 如果是认证错误，记录更详细的信息
       if (error.response?.status === 401) {
         console.error('DeepSeek API authentication failed. Please check your API key.');
       }
-
-      // 抛出错误让调用方处理
       throw new Error(`DeepSeek API调用失败: ${error.message}`);
     }
   }
@@ -115,7 +111,7 @@ ${existingIdeasText}
 3. 标签生成（生成2-4个相关标签）：
    - 每个标签应该是简短的关键词
 4. 关联分析：
-   - 找出与新笔记最相关的现有笔记（最多3个）
+   - 找出与新笔记最相关的现有笔记（最多5个）
    - 说明关联原因
    - 给出关联强度（0.1-1.0）
 

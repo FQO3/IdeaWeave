@@ -6,25 +6,25 @@ import { Lightbulb, Sparkles, Users, Zap } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 
 export default function HomePage() {
-  const { user, restore } = useAuthStore();
-  const router = useRouter();
+    const { user, restore } = useAuthStore();
+    const router = useRouter();
 
-  useEffect(() => {
-    // 检查用户登录状态
-    restore();
-  }, [restore]);
+    useEffect(() => {
+        // 检查用户登录状态
+        restore();
+    }, [restore]);
 
-  const handleGetStarted = () => {
-    // 如果用户已登录，直接跳转到应用页面
-    if (user) {
-      router.push('/app');
-    } else {
-      // 如果未登录，跳转到认证页面
-      router.push('/auth');
-    }
-  };
+    const handleGetStarted = () => {
+        // 如果用户已登录，直接跳转到应用页面
+        if (user) {
+            router.push('/app');
+        } else {
+            // 如果未登录，跳转到认证页面
+            router.push('/auth');
+        }
+    };
 
-      return (
+    return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
             {/* 导航栏 */}
             <nav className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
@@ -58,12 +58,12 @@ export default function HomePage() {
                             让灵感不再流失
                         </span>
                     </div>
-                    
+
                     <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
                         记录、连接、
                         <span className="text-blue-600 dark:text-blue-400"> 创造</span>
                     </h1>
-                    
+
                     <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
                         灵织是一个智能灵感管理平台，帮助你将零散的灵感编织成完整的创意网络，
                         让每一个想法都有机会成长。
@@ -131,5 +131,5 @@ export default function HomePage() {
                 </div>
             </footer>
         </div>
-  );
+    );
 }
