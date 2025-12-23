@@ -3,6 +3,7 @@
 > 面向灵感全生命周期的极简 AI 编织系统  
 > Author：FQO3
 > Tech stack：Next.js + Express.js + TypeScript + LLM API
+> 本ReadMe为AI编写，我改改（懒
 
 ---
 
